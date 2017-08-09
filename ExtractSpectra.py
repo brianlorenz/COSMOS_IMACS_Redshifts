@@ -6,11 +6,30 @@ from astropy.io import fits
 from scipy.optimize import curve_fit
 from matplotlib.widgets import Slider, Button, SpanSelector
 
-filelocation = '/Users/blorenz/Desktop/'
+
+#Usage: run ExtractSpectra.py imloc (objnum)
+#Example: run ExtractSpectra.py "feb16_abig.fits"
+    #This extracts all objects from the mask
+#Example: run ExtractSpectra.py "feb16_abig.fits" 45
+    #This pulls up only object 45, then you can move through the rest from there. 
+'''
+Takes big.fits, bigsig.fits, bigext.fits, bigsky.fits files and outputs a .fits file for each object, containing one row each of spectrum, noise, flat, and sky. 
+objnum - the objects' number in the mask (see header)
+imloc - location of the big.fits file. Input to the code
+outloc - location to output all of the extracted .fits files
+showbad - set to 1 if you want to immediately fix bad fits by hand, 0 if you do not
+'''
+try: imloc = sys.argv[1]
+except: sys.exit('Usage: run ExtractSpectra.py imagelocation (objnum)')
+outloc = '/Users/blorenz/Desktop/testout/'
+showbad = 1
 
 class FunPlot:
     def __init__(self,image):
         self.image = image
+        while image.find('/') != -1:
+            image = image[image.find('/')+1:]
+        self.imname = image
         self.readFits()
     #Compute the gaussians to be used later to determine which rows to plot
         self.gaussians = np.add.reduce(self.hdu.data,1)
@@ -18,6 +37,7 @@ class FunPlot:
     #Variable for plotting the gaussian 
         self.redo = 0
         self.toggle = 0
+        self.outfile = outloc + 'out_' + self.imname.replace('.fits','.txt')
     #Uncomment these to display the gaussians
         #fig, ax = plt.subplots()
         #ax.plot(np.arange(len(self.gaussians)),self.gaussians)
@@ -29,7 +49,6 @@ class FunPlot:
         ax = fig.add_axes([0.1, 0.1, .85, 0.35])
         ax.plot(np.arange(x1,x2),self.gaussians[x1:x2],color='cornflowerblue',label='Data')
         amin,amax = ax.get_ylim()
-        print
         ax.plot((self.csecta[21],self.csecta[21]),(-1000000,1000000),color='grey',label='Slit Division')
         ax.plot((self.csecta[22],self.csecta[22]),(-1000000,1000000),color='grey')
         ax.plot((self.csecta[23],self.csecta[23]),(-1000000,1000000),color='grey')
@@ -46,7 +65,6 @@ class FunPlot:
         fig2 = plt.figure(figsize=(10,8))
         ax2 = fig2.add_axes([0.1, 0.1, .85, 0.35])
         image_data = self.hdu.data[self.csecta[21]:self.csecta[25]+1]
-        print self.csecta[21]
         ax2.imshow(image_data, cmap='gray',clim=(-240.0, 240.0),aspect='auto')
         sub = self.csecta[21]
         ax2.set_yticks([self.csecta[21]-sub,self.csecta[22]-sub,self.csecta[23]-sub,self.csecta[24]-sub,self.csecta[25]-sub])
@@ -114,32 +132,47 @@ class FunPlot:
         except (StopIteration,ValueError,TypeError,RuntimeError):
             self.stddev2 = 1
             if len(peakindex) != 1:
-                self.mu2 = 1000
+                self.mu2 = 0
             else:
-                self.mu2 = peakindex
-            self.gausscurve2 = self.xdata
+                self.mu2 = 0
+            self.gausscurve2 = np.zeros(len(self.xdata))
             print("Could not compute Gaussian Fit")
             self.flag = 1
 
 
     
 #Plotting function - should be run after findRows(). Give this an object number, and it will plot an appropriate amount of rows determined by the standard deviations of the gaussian fits.
-    def plotObj(self,objnum):
+    def plotObj(self,objnum,close=0):
         self.redo = 0
+        self.close = close
+        self.instruct = 1
         self.objnum=objnum
 
         #The function called whenever the figure needs to be updated. This will set the xxdata, ydata, scales, and titles for each of the plots
         def updatePlot(addrow=0):
+            '''
+            leftbound and rightbound - this is the region plotted that will be output as a .fits file
+            flag - 0 if fit was good, 1 if fit failed
+            xstart - beginning of the region that the Gaussian fit over
+            mu2 - mean of the Gaussian fit measured in pixels from xstart.
+            stddev2 - the standard deviation
+            numrows - the determined number of rows to sum over, 1.4*stddev2
+            gausscurve2 - the y_data of the Gaussian Fit
+            '''
             self.image_data = self.hdu.data[self.csecta[self.objnum-1]:self.csectb[self.objnum-1]+1]
             self.fitsplot.set_data(self.image_data)
             if addrow:
                 pass
             else:
-                self.leftbound = self.xstart+self.mu2-self.numrows
-                self.rightbound = self.xstart+self.mu2+self.numrows+1
+                if self.flag == 0:
+                    self.leftbound = self.xstart+self.mu2-self.numrows
+                    self.rightbound = self.xstart+self.mu2+self.numrows+1
+                else:
+                    self.leftbound = 0
+                    self.rightbound = 0
             self.l1.set_ydata(np.add.reduce(self.hdu.data[self.leftbound:self.rightbound]))
             self.l2.set_ydata(np.sqrt(np.add.reduce(self.hdu2.data[self.leftbound:self.rightbound]**2)))
-            self.ax.set_title('Spectrum of Rows ' + str(self.leftbound) + ' to ' + str(self.rightbound-1) + ', ' + self.image)
+            self.ax3.set_title('Gaussian Fit, Rows ' + str(self.leftbound) + ' to ' + str(self.rightbound-1) + ', ' + self.imname)
             #self.zoomplot.set_xdata(self.wavelength)
             #self.zoomplot2.set_xdata(self.wavelength)
             #self.zoomplot.set_ydata(np.add.reduce(self.hdu.data[self.leftbound:self.rightbound]))
@@ -158,6 +191,10 @@ class FunPlot:
             self.k1.set_ydata(self.ydata)
             self.ax.set_xlim(self.wavelength[0],self.wavelength[-1])
             self.ax.set_ylim(min(self.dataplot),max(self.dataplot))
+            self.h1.set_ydata((self.leftbound-self.csecta[self.objnum-1],self.leftbound-self.csecta[self.objnum-1]))
+            self.h2.set_ydata((self.rightbound-1-self.csecta[self.objnum-1],self.rightbound-1-self.csecta[self.objnum-1]))
+            self.ax4.set_yticks((0,25))
+            self.ax4.set_yticklabels([self.csecta[self.objnum-1],self.csecta[self.objnum-1]+25])
             if addrow:
                 pass
             else:
@@ -165,12 +202,17 @@ class FunPlot:
                 #self.ax2.set_ylim(min(self.dataplot),max(self.dataplot))
                 self.ax3.set_xlim(self.xdata[0]+self.xstart,self.xdata[-1]+self.xstart)
                 self.ax3.set_ylim(min(min(self.ydata),min(self.gausscurve2)),max(max(self.ydata),max(self.gausscurve2))*1.1)
-            self.ax.legend([self.l1,self.l2],[('OBJID ' + str(self.objids[self.objnum-1])),"Noise"],bbox_to_anchor=(1.22, 1.0))
+            self.ax.legend([self.l1,self.l2],[('OBJID ' + str(self.objids[self.objnum-1])),"Noise"],bbox_to_anchor=(1.22, 0.22))
             self.ax3.legend(bbox_to_anchor=(1.22, 1.0))
             plt.draw()
 
         #The calculates the gaussian fit for the given object number, and creates the plots if this is the first time. This does not need ot be called everytime a plot needs to be updated (e.g. zoomzlider) but is called whenever a gaussian needs to be refit (e.g. zoomslider3 or moving to the next objnum). 
         def calcPlot(objnum,createplot=1):
+            '''
+            ax1 - contains the plot of the data and noise (noise is added in quadriture)
+            ax3 - contains the Gaussian plot and the zoomslider to refit the Gaussian
+            ax4 - contains the display of the relevent section of the big.fits file.
+            '''
             self.getRows()
             self.redo = 0
             self.wavelength = (1.+np.arange(self.hdu.header["naxis1"])-self.hdu.header["crpix1"])*self.hdu.header["cdelt1"] + self.hdu.header["crval1"]
@@ -185,12 +227,17 @@ class FunPlot:
                 #self.ax = plt.subplot2grid((2,2),(0,0),colspan=2)
                 #self.ax2 = plt.subplot2grid((2,2),(1,0))
                 #self.ax3 = plt.subplot2grid((2,2),(1,0),colspan=2)
-                self.ax = self.fig.add_axes([0.12, 0.6, 0.7, 0.3])
-                self.ax3 = self.fig.add_axes([0.12, 0.1, 0.7, 0.3])
+                self.ax = self.fig.add_axes([0.12, 0.1, 0.7, 0.3])
+                self.ax3 = self.fig.add_axes([0.12, 0.6, 0.7, 0.3])
                 self.ax4 = self.fig.add_axes([0.12, 0.4, 0.7, 0.1])
-                self.ax4.xaxis.tick_top()
+                #self.ax4.xaxis.tick_top()
+                self.ax4.get_xaxis().set_visible(False)
+                self.ax4.set_ylabel('Row Number')
                 self.image_data = self.hdu.data[self.csecta[self.objnum-1]:self.csectb[self.objnum-1]+1]
                 self.fitsplot = self.ax4.imshow(self.image_data, cmap='gray',clim=(-240.0, 240.0),aspect='auto')
+                self.h1, = self.ax4.plot((0,len(self.wavelength)),(0,0),color='mediumseagreen')
+                self.h2, = self.ax4.plot((0,len(self.wavelength)),(0,0),color='mediumseagreen')
+                self.ax4.set_xlim(0,len(self.wavelength))
                 self.l1, = self.ax.plot(self.wavelength,self.dataplot,label=('OBJID ' + str(self.objids[self.objnum-1])), color='cornflowerblue')
                 self.l2, = self.ax.plot(self.wavelength,self.dataplot2, label='Noise', color='orange')
                 #self.zoomplot, = self.ax2.plot(self.wavelength,self.dataplot,label=('OBJID ' + str(self.objids[self.objnum-1])), color='cornflowerblue')
@@ -206,7 +253,10 @@ class FunPlot:
                 self.ax3.set_xlabel('Pixel Index')
                 self.ax3.set_ylabel('Counts')
                 #self.ax2.set_title('Zoom')
-                self.ax3.set_title('Gaussian Fit')
+                #self.ax3.set_title('Gaussian Fit')
+                if self.instruct:
+                    print "Drag over the Gaussian plot to attempt to refit a Guassian over the given region. \nIf the fitting isn't working, click on the Gaussian plot to plot a single row, then use the arrow buttons to adjust the range. \nWhen finished, press savespec before moving on."
+                    self.instruct = 0
             updatePlot()
             redoGauss()
 
@@ -268,16 +318,32 @@ class FunPlot:
             headerout['LOWBOUND'] = self.leftbound
             headerout['UPBOUND'] = self.rightbound-1
             hdu = fits.PrimaryHDU(header = headerout, data = dataout)
-            filelocation2 = filelocation + ('%06d' % int(self.objids[self.objnum-1])) + '_' + self.image
-            self.fig.savefig(filelocation + ('%06d' % int(self.objids[self.objnum-1])) + '_' + self.image.replace('.fits','.png'))
+            filelocation2 = outloc + ('%06d' % int(self.objids[self.objnum-1])) + '_' + self.imname
+            self.fig.savefig(outloc + ('%06d' % int(self.objids[self.objnum-1])) + '_' + self.imname.replace('.fits','.png'))
             hdu.writeto(filelocation2,overwrite=True)
             print('Spectrum saved to ' + filelocation2)
-            plt.close(self.fig)
-            
+            f3 = open(self.outfile,"r+")
+            d = f3.readlines()
+            f3.seek(0)
+            f3.write(d[0])
+            for i in d[1:]:
+                if self.objnum == int(i[7:10]):
+                    f3.write('%06d %3d    %4d %4d   %4d     %4d    %d\n' % (int(self.objids[self.objnum-1]),self.objnum,self.mu2+self.xstart,self.stddev2,self.leftbound,self.rightbound-1,self.flag))
+                else:
+                    f3.write(i)
+            f3.close()
+            savetext = self.fig.text(0.85,0.3,'Saved!',fontsize=24)
+            plt.pause(0.1)
+            plt.gcf().texts.remove(savetext)
+            if self.close:
+                plt.close(self.fig)
 
         def Refresh(event):
             plt.close(self.fig)
-            self.plotObj(self.objnum)
+            if self.close:
+                self.plotObj(self.objnum,close=1)
+            else:
+                self.plotObj(self.objnum)
 
         def zoomGauss(event):
             self.toggle = not self.toggle
@@ -309,29 +375,37 @@ class FunPlot:
         def zoomslider3(xmin, xmax):
             indmin, indmax = np.searchsorted(self.xdata+self.xstart, (xmin, xmax))
             indmax = min(len(self.xdata) - 1, indmax)
-            self.xstart = self.xdata[indmin]+self.xstart
-            self.xdata = self.xdata[indmin:indmax]-self.xdata[indmin]
-            self.ydata = self.ydata[indmin:indmax]
-            self.redo = 1
-            calcPlot(self.objnum,createplot=0)
+            if indmin == indmax:
+                self.leftbound = indmin+self.csecta[self.objnum-1]
+                self.rightbound = indmin+self.csecta[self.objnum-1]+1
+                updatePlot(addrow=1)
+            else:
+                self.xstart = self.xdata[indmin]+self.xstart
+                self.xdata = self.xdata[indmin:indmax]-self.xdata[indmin]
+                self.ydata = self.ydata[indmin:indmax]
+                self.redo = 1
+                calcPlot(self.objnum,createplot=0)
             #fig.canvas.draw()
 
         #Immediately run calcplot after calling plotObj()
         calcPlot(self.objnum)
         
         #Define the button locations
-        axnext = plt.axes([0.495, 0.535, 0.10, 0.03])
-        axprev = plt.axes([0.34, 0.535, 0.10, 0.03])
-        zoomgauss = plt.axes([0.72, 0.035, 0.1, 0.03])
-        savespec = plt.axes([0.85, 0.035, 0.1, 0.1])
-        refresh = plt.axes([0.03, 0.035, 0.075, 0.03])
-        addrowright = plt.axes([0.58, 0.035, 0.03, 0.03])
-        rmrowright = plt.axes([0.545, 0.035, 0.03, 0.03])
-        addrowleft = plt.axes([0.355, 0.035, 0.03, 0.03])
-        rmrowleft = plt.axes([0.32, 0.035, 0.03, 0.03])
+        if not self.close:
+            axnext = plt.axes([0.85, 0.575, 0.10, 0.03])
+            axprev = plt.axes([0.85, 0.535, 0.10, 0.03])
+            bnext = Button(axnext, 'Next OBJID')
+            bprev = Button(axprev, 'Prev OBJID')
+            bnext.on_clicked(next)
+            bprev.on_clicked(prev)
+        zoomgauss = plt.axes([0.72, 0.535, 0.1, 0.03])
+        savespec = plt.axes([0.85, 0.40, 0.1, 0.1])
+        refresh = plt.axes([0.03, 0.535, 0.075, 0.03])
+        addrowright = plt.axes([0.58, 0.535, 0.03, 0.03])
+        rmrowright = plt.axes([0.545, 0.535, 0.03, 0.03])
+        addrowleft = plt.axes([0.355, 0.535, 0.03, 0.03])
+        rmrowleft = plt.axes([0.32, 0.535, 0.03, 0.03])
         #Turn them into buttons
-        bnext = Button(axnext, 'Next OBJID')
-        bprev = Button(axprev, 'Prev OBJID')
         bzoomgauss = Button(zoomgauss, 'Zoom Gauss')
         bsavespec = Button(savespec, 'Save Spec')
         brefresh = Button(refresh, 'Refresh')
@@ -340,8 +414,6 @@ class FunPlot:
         baddrowleft = Button(addrowleft, '>')
         brmrowleft = Button(rmrowleft, '<')
         #Point to the relevent function when clicked
-        bnext.on_clicked(next)
-        bprev.on_clicked(prev)
         bzoomgauss.on_clicked(zoomGauss)
         bsavespec.on_clicked(saveSpectrum)
         brefresh.on_clicked(Refresh)
@@ -372,9 +444,14 @@ class FunPlot:
             wavelength = (1.+np.arange(self.hdu.header["naxis1"])-self.hdu.header["crpix1"])*self.hdu.header["cdelt1"] + self.hdu.header["crval1"]
             objids = [self.hdu.header["objid%d"%(j+1)] for j in range(self.nslits)]
             #Plot then save the plot
-            fig, axarr = plt.subplots(2,1)
-            ax1 = axarr[0]
-            ax2 = axarr[1]
+            #fig, axarr = plt.subplots(3,1,figsize=(10,8))
+            #ax1 = axarr[0]
+            #ax2 = axarr[1]
+            #ax4 = axarr[2]
+            fig = plt.figure(figsize=(10,8))
+            ax1 = fig.add_axes([0.12, 0.1, 0.7, 0.3])
+            ax2 = fig.add_axes([0.12, 0.6, 0.7, 0.3])
+            ax4 = fig.add_axes([0.12, 0.4, 0.7, 0.1])
             dataplot = np.add.reduce(self.hdu.data[leftbound:rightbound])
             l1, = ax1.plot(wavelength,dataplot,label=('OBJID ' + str(objids[self.objnum-1])), color='cornflowerblue')
             k2, = ax2.plot(self.xdata+self.xstart,self.gausscurve2,color = 'red',label='Gaussian Fit')
@@ -389,12 +466,21 @@ class FunPlot:
             ax1.set_ylabel('Counts')
             ax2.set_xlabel('Pixel Index')
             ax2.set_ylabel('Counts')
-            ax1.set_title('Spectrum of objnum ' + str(self.objnum) + ' in ' + self.image)
+            ax1.set_title('Spectrum of objnum ' + str(self.objnum) + ' in ' + self.imname)
             ax2.set_title('Gaussian Fit, Plotted Rows ' + str(leftbound) + ' to ' + str(rightbound-1))
             ax1.legend()
             ax2.legend()
-            plt.tight_layout()
-            fig.savefig(filelocation + ('%06d' % int(objids[self.objnum-1])) + '_' + self.image.replace('.fits','.png'))
+            ax4.get_xaxis().set_visible(False)
+            ax4.set_ylabel('Row Number')
+            image_data = self.hdu.data[self.csecta[self.objnum-1]:self.csectb[self.objnum-1]+1]
+            fitsplot = ax4.imshow(image_data, cmap='gray',clim=(-240.0, 240.0),aspect='auto')
+            h1, = ax4.plot((0,len(wavelength)),(leftbound-self.csecta[self.objnum-1],leftbound-self.csecta[self.objnum-1]),color='mediumseagreen')
+            h2, = ax4.plot((0,len(wavelength)),(rightbound-1-self.csecta[self.objnum-1],rightbound-1-self.csecta[self.objnum-1]),color='mediumseagreen')
+            ax4.set_xlim(0,len(wavelength))
+            ax4.set_yticks((0,25))
+            ax4.set_yticklabels([self.csecta[self.objnum-1],self.csecta[self.objnum-1]+25])
+            #plt.tight_layout()
+            fig.savefig(outloc + ('%06d' % int(objids[self.objnum-1])) + '_' + self.imname.replace('.fits','.png'))
             #Write the .fits file
             hduarray = np.add.reduce(self.hdu.data[leftbound:rightbound])
             hdu2array = np.sqrt(np.add.reduce(self.hdu2.data[leftbound:rightbound]**2))
@@ -415,21 +501,32 @@ class FunPlot:
             headerout['LOWBOUND'] = leftbound
             headerout['UPBOUND'] = rightbound-1
             hdu = fits.PrimaryHDU(header = headerout, data = dataout)
-            filelocation2 = filelocation + ('%06d' % int(objids[self.objnum-1])) + '_' + self.image
-            hdu.writeto(filelocation,overwrite=True)
-            print 'Spectrum saved to ' + filelocation 
+            filelocation2 = outloc + ('%06d' % int(objids[self.objnum-1])) + '_' + self.imname
+            hdu.writeto(filelocation2,overwrite=True)
+            print 'Spectrum saved to ' + filelocation2 
             #Add the info to the text file output
             if new:
-                f = open('/Users/blorenz/Desktop/COSMOSData/FitsFileOut/' + 'out_' + self.image.replace('.fits','.txt'),'w+')
+                f = open(self.outfile,'w+')
                 f.write('#Objid Objnum Mean Stddev Lowbound Upbound Flag\n')
                 new = 0;
             else:
-                f = open('/Users/blorenz/Desktop/COSMOSData/FitsFileOut/' + 'out_' + self.image.replace('.fits','.txt'),'a+')
+                f = open(self.outfile,'a+')
             f.write('%06d %3d    %4d %4d   %4d     %4d    %d\n' % (int(objids[self.objnum-1]),self.objnum,mu2+self.xstart,self.stddev2,leftbound,rightbound-1,self.flag))
             f.close()
             plt.close(fig)
 
+a = FunPlot(imloc)
 
+if len(sys.argv) == 3:
+    a.plotObj(int(sys.argv[2]))
+elif len(sys.argv) == 2:
+    yesno = raw_input('Are you sure you want to overwrite output from ' + sys.argv[1] + '? (y/n) ')
+    if yesno == 'y':
+        a.outputData()
+        if showbad:
+            outdata = np.genfromtxt(a.outfile,dtype=None,names=True)
+            outdata = outdata[outdata['Flag'] == 1]
+            for i in range(len(outdata)):
+                a.plotObj(outdata[i]['Objnum'],close=1)            
             
-a = FunPlot('feb16_abig.fits')
-a.plotObj(1)
+
