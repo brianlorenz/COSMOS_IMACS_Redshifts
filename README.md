@@ -1,5 +1,5 @@
 # COSMOS_IMACS_Redshifts
-A pipeline to take processed big.fits files from the IMACS spectrograph on the Baade telescope at Magellan and compute redshifts to galaxies
+A pipeline to take processed big.fits files from the [IMACS spectrograph](http://www.lco.cl/telescopes-information/magellan/instruments/imacs) on the Baade telescope at Magellan and compute redshifts to galaxies
 
 
 Intended to run in this order:
@@ -12,4 +12,13 @@ TCorr.py - applies the correction file to every object in the mask through corss
 
 CrossCor.py - GUI that finds the redshift to each object
 
-            - Requires spectral templates 23-27 from Sloan Digital Sky Survey DR2
+
+## Dependencies
+
+SDSS DR**2** Spectral Templates 23 - 27, available at [this URL](http://classic.sdss.org/dr2/algorithms/spectemplates/) in .FIT format
+
+[Numpy](http://www.numpy.org/)
+
+[SciPy](https://www.scipy.org/)
+
+[Astropy](http://www.astropy.org/)
