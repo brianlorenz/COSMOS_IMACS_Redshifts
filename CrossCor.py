@@ -24,7 +24,7 @@ Change to your dataset:
 wave1,wave2 - (int,int) - the wavelength range over which to correlate the data, can be changed by the user in the GUI
 zrange - (int,int) - the range of redshifts over which to search
 emclip - boolean - set True to clip emission lines by default, or False to keep them in. This setting can always be toggled within the GUI, but this value is what displays first.
-specplot - boolean - set to 1 if you want a second plot showing common spectral lines overlaid on the galaxy at the currect redshift. Can be kind of clunky, so default is off, but could be useful to enable for 'unsure' galaxies
+specplot - boolean - set to 1 if you want a second plot showing common spectral lines overlaid on the galaxy at the currect redshift. Can be kind of clunky, so default is off, but could be useful to enable for 'unsure' galaxies. Can be toggled in the GUI. Requires galaxlylines.dat in the same folder as your image
 
 Other:
 outloc - string - where your files will be output, defaults to the same as input
@@ -275,7 +275,8 @@ class Plot():
         create - sets to 0 after creating the axes for the first time
         add - toggles between 1 (add) and 0 (subtract) for modifying the mask
         star,baddata,unsure,flag1,flag2,flag3 - 0 or 1, flags that the user can set
-        failure - is set to 1 if the cross correlation fails, then the code outputs only zeros
+        failure - boolean - is set to 1 if the cross correlation fails, then the code outputs only zeros
+        mkspec - boolean - toggles whether or not to display the spec plot
         '''
         self.image = g
         self.objimage = self.image
@@ -298,6 +299,7 @@ class Plot():
         self.flag1 = 0
         self.flag2 = 0
         self.flag3 = 0
+        self.mkspec = specplot
 
     def doCC(self,g,eclip,verb,newmask=0,wavechange=0,good=0,changeclip=0):
         '''
@@ -334,7 +336,7 @@ class Plot():
         elif self.tempid == 27: self.temp = self.t27
 
     def mkspecplot(self):
-        self.lfile = np.genfromtxt(imloc + 'galaxylines.dat',dtype=None,names=True)
+        self.lfile = np.genfromtxt(imloc + 'galaxylines.dat',skip_header=11,dtype=None,names=('loc','type','name'))
         self.fig2 = plt.figure(figsize=(10,6))
         self.a2x = self.fig2.add_axes([0, 0, 1, 1])
         G = self.G
@@ -347,8 +349,9 @@ class Plot():
             loc,ctype,name = self.lfile[i]
             shiftloc = loc*(1+self.temp.zsmax)
             if ctype == 2: color = 'indianred'
-            elif ctype == 3: color = 'mediumseagreen'
             else: color = 'cornflowerblue'
+            if name == 'Break': color = 'mediumseagreen'
+            elif name == 'Hbeta': color = 'cornflowerblue'
             self.a2x.plot((shiftloc,shiftloc),(-100000,100000),color=color,linestyle='--',alpha=0.75)
         
     
@@ -356,7 +359,6 @@ class Plot():
         '''
         Sets up the GUI for the first time 
         '''
-        if specplot: self.mkspecplot()
         if self.failure:
             G = self.G
             f3 = open(outfile,"r+")
@@ -646,10 +648,10 @@ class Plot():
             filelocation2 = outloc + 'cc_' + self.objimage.replace('.fits','.png')
             filelocation3 = outloc + 'cc_' + self.objimage.replace('.fits','2.png')
             self.fig.savefig(filelocation2)
-            if specplot: self.fig2.savefig(filelocation3)
+            if self.mkspec: self.fig2.savefig(filelocation3)
             plt.clf()
             plt.close(self.fig)
-            if specplot: plt.close(self.fig2)
+            if self.mkspec: plt.close(self.fig2)
 
         def checkStarFlag():
             if self.star == 1: bsflag.label.set_text('Unmark Star')
@@ -752,9 +754,32 @@ class Plot():
         bchangez = Button(changez, 'Change z Range')
         bchangez.on_clicked(changeZ)
 
+        def checkSpecFlag():
+            if self.star == 1: bsflag.label.set_text('Unmark Star')
+            else: bsflag.label.set_text('Mark Star')
+            plt.draw()
+        
+        def mkSpec(event):
+            if self.mkspec == 1:
+                self.mkspec = 0
+                plt.close(self.fig2)
+                bmkspec.label.set_text('Show Spec Plot')
+            else:
+                self.mkspec = 1
+                self.mkspecplot()
+                plt.show(block=False)
+                plt.figure(1)
+                bmkspec.label.set_text('Hide Spec Plot')
+            plt.draw()
+        mkspec = plt.axes([0.01, 0.63, 0.08, 0.03])
+        if specplot: bmkspec = Button(mkspec, 'Hide Spec Plot')
+        else: bmkspec = Button(mkspec, 'Show Spec Plot')
+        bmkspec.on_clicked(mkSpec)
+
         save = plt.axes([0.0, 0.0, 0.1, 0.05])
         bsave = Button(save, 'Save')
         bsave.on_clicked(Bsave)
+        if self.mkspec: self.mkspecplot()
         plt.show()
 
 #==============================================================
@@ -805,11 +830,11 @@ class Plot():
         ax2min,ax2max = self.ax2.get_xlim()
         self.ax5.set_xlim((ax2min-4900)/2,(ax2max-4900)/2)
         self.refreshText(remove = 1)
-        if specplot:
+        if self.mkspec:
             plt.close(self.fig2)
             self.mkspecplot()
             plt.show(block=False)
-            plt.figure(2)
+            plt.figure(1)
         plt.draw()
 
     def refreshText(self,remove = 0):
