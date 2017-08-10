@@ -1,6 +1,7 @@
 import numpy as np
 import glob
-from sys import *
+import sys
+import os
 from astropy.io import fits
 from scipy.interpolate import interp1d,splrep,splev,sproot
 from scipy.optimize import fsolve
@@ -8,7 +9,66 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Button,SpanSelector,CheckButtons
 from matplotlib import gridspec
 from mpl_toolkits.axes_grid.inset_locator import inset_axes
-from stsci.convolve import boxcar
+#from stsci.convolve import boxcar
+from astropy.convolution import convolve, Box1DKernel
+
+#Usage: run CrossCor.py imagename (objid)
+'''
+Inputs:
+imagename - string -  set to be your big.fits file, including the path.
+objid - string -  set to the 6-letter object id of a single object to open only that one 
+
+Other:
+outloc - string - where your files will be output
+temploc - string - where you store your templates. This defaults to you imagename location
+outname - string - name of your output files. Defaults to 'cc_' + (your big.fits name). e.g. 'a' creates a.txt and verb_a.txt.
+imloc - string - this will be set to the path to the big.fits file automatically
+imname - string - this will be set to just the big.fits file automatically
+
+
+NOTE: The outfile must correspond to the image that it was generated from. The file is generated once with all objects in the mask if it does not exist, and then is modified from there.
+'''
+outloc = '/Users/blorenz/Desktop/testout/testout2/'
+outname = 0
+temploc = 0
+readunsure = 0
+objid = 0
+
+
+imagename = sys.argv[1]
+
+
+if len(sys.argv) == 3:
+    if sys.argv[2] == 'unsure':
+        readunsure = 1
+    else:
+        objid = sys.argv[2]
+
+imname = imagename
+while imname.find('/') != -1:
+    imname = imname[imname.find('/')+1:]
+imloc = imagename.replace(imname,'')
+if not temploc: temploc = imloc
+if not outname: outname = 'cc_' + imname.replace('.fits','')
+
+
+outfile = outloc + outname + '.txt'
+outfilev = outloc + 'verb_' + outname + '.txt'
+
+if not os.path.exists(outfile):
+    imarr = glob.glob(imloc + 'cor_??????_' + imname)
+    f = open(outfile,'w+')
+    f2 = open(outfilev,'w+')
+    f.write('#OBJID  temp    z           dzhi        dzlo        ccmax     chi2    rchi2  eclip     S/N      Star Bad  Unsure    ImageName            Revisit  Note  Unusable\n')
+    f2.write('#OBJID z23 dzhi23 dzlo23 ccmax23 chi223 rchi223 z24 dzhi24 dzlo24 ccmax24 chi224 rchi224 z25 dzhi25 dzlo25 ccmax25 chi225 rchi225 z26 dzhi26 dzlo26 ccmax26 chi226 rchi226 z27 dzhi27 dzlo27 ccmax27 chi227 rchi227 temp eclip S/N Star Bad Unsure ImageName Revisit Note Unusable\n')
+    for i in range(len(imarr)):
+        objname = imarr[i].replace(imloc,'')
+        print objname
+        f.write(('%06d   %d    %.6f    %.6f   %.6f    %7.2f   %7.2f   %2.2f     %d      %2.2f      %d    %d     %d ' % (0,0,0,0,0,0,0,0,0,0,0,0,0)) + objname + ('      %d       %d       %d' % (0,0,0)) + '\n')
+        f2.write(('%06d %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %d %d %3.2f %d %d %d' % (0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)) + ' '+ objname + (' %d %d %d' % (0,0,0)) + '\n')
+    f.close()
+    f2.close()
+
 
 skylines = [5577.0,5890.0,6300,6364]
 telluric = [(7584,7650)]
@@ -42,7 +102,7 @@ def legendre(x,nl):
 
 def outGraph(xdata,ydata,objid,kind,lim=0):
     #kind is a short string describing the graph
-    filepath = '/Users/blorenz/Desktop/COSMOSData/corFitsFileOut/crossCorOUT/verb/'
+    filepath = outloc
     fig, ax1 = plt.subplots(figsize=(10,8))
     ax1.plot(xdata,ydata,color='red')
     ax1.set_title(('%06d' % objid) + ', ' + kind)
@@ -90,7 +150,7 @@ def Smooth(y,good,p=50,h=25):
 class Spectrum():
     def __init__(self,file,clip=0,verb=0):
         self.file = file
-        self.bigfile = self.file[11:]
+        self.bigfile = imloc + imname
         self.verb = verb
         self.clipemission = clip
         self.Read()
@@ -99,14 +159,14 @@ class Spectrum():
         self.lobar = self.head['lowbound']-self.head['csecta']-1
         self.hibar = self.head['upbound']-self.head['csecta']+1
         self.bighead = self.bighdu.header
-       # self.spec = self.data[0]
+        self.spec = self.data[0]
         self.orig = self.data[1]
         self.noise = self.data[2]
         self.flat = self.data[3]
         self.sky = self.data[4]
-        #self.tc = self.data[5]
-       # self.mask = self.data[6]
-       # self.fit = self.data[7]
+        self.tc = self.data[5]
+        self.mask = self.data[6]
+        self.fit = self.data[7]
         self.objid = self.head['OBJID']
         self.findSN()
         self.GetBadPixels()
@@ -138,7 +198,8 @@ class Spectrum():
                 bad = 1.*np.logical_or(bad,np.greater(self.wavelength,skyline-3*self.cdelt1)*np.less(self.wavelength,skyline+3*self.cdelt1))
             for absorb in telluric:
                 bad = 1.*np.logical_or(bad,np.greater(self.wavelength,absorb[0])*np.less(self.wavelength,absorb[-1]))
-            bad = 1.*np.greater(boxcar(bad,(8,)),0)
+            #bad = 1.*np.greater(boxcar(bad,(8,)),0)
+            bad = 1.*np.greater(convolve(bad,Box1DKernel(8)),0)
         else:
             bad = np.zeros(self.spec.shape,dtype='float')
         sm = Smooth(self.spec,np.logical_not(bad))
@@ -166,7 +227,7 @@ class Spectrum():
         
 class Template(Spectrum):
     def __init__(self,n,clip=0,verb=0):
-        self.file = "spDR2-%03d.fit" % (n)
+        self.file = temploc + "spDR2-%03d.fit" % (n)
         self.verb = verb
         self.clipemission = clip
         self.Read()
@@ -174,8 +235,6 @@ class Template(Spectrum):
         self.verb = 0
         self.GetBadPixels()
         wu,su = np.compress(self.good,[self.wavelength,self.spec],1)
-        #wu = np.compress(self.good,self.wavelength)
-        #su = np.compress(self.good,self.spec)
         self.interp = interp1d(wu,su,fill_value=0,bounds_error=0)
     def Redshift(self,z,w):
         return self.interp(w)/(1.0+z)
@@ -184,6 +243,9 @@ class Plot():
     def __init__(self,g,m=0):
         #Set parameters here:
         self.image = g
+        self.objimage = self.image
+        while self.objimage.find('/') != -1:
+            self.objimage = self.objimage[self.objimage.find('/')+1:]
         verb = 0
         self.m = m
         if m:
@@ -241,9 +303,9 @@ class Plot():
 
     def Save(self):
         G = self.G
-        f.write(('%06d   %d    %.6f    %.6f   %.6f    %7.2f   %7.2f   %2.2f     %d      %2.2f      %d    %d     %d ' % (G.objid,self.tempid,self.temp.zsmax,self.temp.dzhi,self.temp.dzlo, self.temp.ccmax, self.temp.chi2,self.temp.rchi2,self.eclip,G.signoise,self.star,self.baddata,self.unsure)) + self.image + ('      %d      %d      %d' % (self.flag1, self.flag2, self.flag3)) + '\n')
-        f2.write(('%06d %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %d %d %3.2f %d %d %d' % (G.objid,self.t23.zsmax,self.t23.dzhi,self.t23.dzlo, self.t23.ccmax, self.t23.chi2,self.t23.rchi2,self.t24.zsmax,self.t24.dzhi,self.t24.dzlo, self.t24.ccmax, self.t24.chi2,self.t24.rchi2,self.t25.zsmax,self.t25.dzhi,self.t25.dzlo, self.t25.ccmax, self.t25.chi2,self.t25.rchi2,self.t26.zsmax,self.t26.dzhi,self.t26.dzlo, self.t26.ccmax, self.t26.chi2,self.t26.rchi2,self.t27.zsmax,self.t27.dzhi,self.t27.dzlo, self.t27.ccmax, self.t27.chi2,self.t27.rchi2,self.tempid,self.eclip,G.signoise,self.star,self.baddata,self.unsure)) + ' '+ self.image + (' %d %d %d' % (self.flag1, self.flag2, self.flag3)) + '\n')
-        filelocation2 = '/Users/blorenz/Desktop/COSMOSData/corFitsFileOut/crossCorOut/' + letnum + '/' + 'cor_' + self.image.replace('.fits','.png')
+        f.write(('%06d   %d    %.6f    %.6f   %.6f    %7.2f   %7.2f   %2.2f     %d      %2.2f      %d    %d     %d ' % (G.objid,self.tempid,self.temp.zsmax,self.temp.dzhi,self.temp.dzlo, self.temp.ccmax, self.temp.chi2,self.temp.rchi2,self.eclip,G.signoise,self.star,self.baddata,self.unsure)) + self.objimage + ('      %d      %d      %d' % (self.flag1, self.flag2, self.flag3)) + '\n')
+        f2.write(('%06d %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %d %d %3.2f %d %d %d' % (G.objid,self.t23.zsmax,self.t23.dzhi,self.t23.dzlo, self.t23.ccmax, self.t23.chi2,self.t23.rchi2,self.t24.zsmax,self.t24.dzhi,self.t24.dzlo, self.t24.ccmax, self.t24.chi2,self.t24.rchi2,self.t25.zsmax,self.t25.dzhi,self.t25.dzlo, self.t25.ccmax, self.t25.chi2,self.t25.rchi2,self.t26.zsmax,self.t26.dzhi,self.t26.dzlo, self.t26.ccmax, self.t26.chi2,self.t26.rchi2,self.t27.zsmax,self.t27.dzhi,self.t27.dzlo, self.t27.ccmax, self.t27.chi2,self.t27.rchi2,self.tempid,self.eclip,G.signoise,self.star,self.baddata,self.unsure)) + ' '+ self.objimage + (' %d %d %d' % (self.flag1, self.flag2, self.flag3)) + '\n')
+        filelocation2 = outloc + 'cc_' + self.objimage.replace('.fits','.png')
         self.fig.savefig(filelocation2)
         plt.clf()
         plt.close()
@@ -272,25 +334,25 @@ class Plot():
         if self.failure:
             if not m:
                 G = self.G
-                f.write(('%06d   %d    %.6f    %.6f   %.6f    %7.2f   %7.2f   %2.2f     %d      %2.2f      %d    %d     %d ' % (G.objid,0,0,0,0,0,0,0,0,0,0,1,1)) + self.image + ('      %d       %d       %d' % (0,0,1)) + '\n')
-                f2.write(('%06d %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %d %d %3.2f %d %d %d' % (G.objid,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1)) + ' '+ self.image + (' %d %d %d' % (0,0,1)) + '\n')
+                f.write(('%06d   %d    %.6f    %.6f   %.6f    %7.2f   %7.2f   %2.2f     %d      %2.2f      %d    %d     %d ' % (G.objid,0,0,0,0,0,0,0,0,0,0,1,1)) + self.objimage + ('      %d       %d       %d' % (0,0,1)) + '\n')
+                f2.write(('%06d %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %d %d %3.2f %d %d %d' % (G.objid,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1)) + ' '+ self.objimage + (' %d %d %d' % (0,0,1)) + '\n')
                 return
             else:
                 G = self.G
-                f3 = open('/Users/blorenz/Desktop/COSMOSData/corFitsFileOut/crossCorOut/' + letnum + '.txt',"r+")
-                f4 = open('/Users/blorenz/Desktop/COSMOSData/corFitsFileOut/crossCorOut/' + 'verb_' + letnum + '.txt','r+')
+                f3 = open(outfile,"r+")
+                f4 = open(outfilev,'r+')
                 d = f3.readlines()
                 e = f4.readlines()
                 f3.seek(0)
                 f4.seek(0)
                 for i in d:
-                    if self.image in i:
-                        f3.write(('%06d   %d    %.6f    %.6f   %.6f    %7.2f   %7.2f   %2.2f     %d      %2.2f      %d    %d     %d ' % (G.objid,0,0,0,0,0,0,0,0,0,0,1,1)) + self.image + ('      %d      %d      %d' % (0,0,1)) + '\n')
+                    if self.objimage in i:
+                        f3.write(('%06d   %d    %.6f    %.6f   %.6f    %7.2f   %7.2f   %2.2f     %d      %2.2f      %d    %d     %d ' % (G.objid,0,0,0,0,0,0,0,0,0,0,1,1)) + self.objimage + ('      %d      %d      %d' % (0,0,1)) + '\n')
                     else:
                         f3.write(i)
                 for i in e:
-                    if self.image in i:
-                        f4.write(('%06d %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %d %d %3.2f %d %d %d' % (G.objid,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1)) + ' '+ self.image + (' %d %d %d' % (0,0,1)) + '\n')
+                    if self.objimage in i:
+                        f4.write(('%06d %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %d %d %3.2f %d %d %d' % (G.objid,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1)) + ' '+ self.objimage + (' %d %d %d' % (0,0,1)) + '\n')
                     else:
                         f4.write(i)
                 f3.close()
@@ -313,7 +375,7 @@ class Plot():
             #self.ax4 = self.fig.add_axes([0.75, 0.05, 0.2, 0.10])
             #self.ax4 = plt.subplot2grid((5,8),(3,6),rowspan=2,colspan=2)
             self.ax5 = self.fig.add_axes([0.53, 0.9, 0.43, 0.08])
-            self.ax1.set_title('Spectrum of ' + self.image + ', S/N = ' + str(G.signoise))
+            self.ax1.set_title('Spectrum of ' + self.objimage + ', S/N = ' + str(G.signoise))
             self.ax2.set_title('Galaxy Template Comparison')
             self.ax2b.set_title('H and K Line Zoom')
             self.ax2c.set_title('O3 and H-Beta Line Zoom')
@@ -550,26 +612,26 @@ class Plot():
             plt.pause(.1)
             plt.gcf().texts.remove(self.savetext)
             G = self.G
-            f3 = open('/Users/blorenz/Desktop/COSMOSData/corFitsFileOut/crossCorOut/' + letnum + '.txt',"r+")
-            f4 = open('/Users/blorenz/Desktop/COSMOSData/corFitsFileOut/crossCorOut/' + 'verb_' + letnum + '.txt','r+')
+            f3 = open(outfile,"r+")
+            f4 = open(outfilev,'r+')
             d = f3.readlines()
             e = f4.readlines()
             f3.seek(0)
             f4.seek(0)
             for i in d:
-                if self.image in i:
-                    f3.write(('%06d   %d    %.6f    %.6f   %.6f    %7.2f   %7.2f   %2.2f     %d      %2.2f      %d    %d     %d ' % (G.objid,self.tempid,self.temp.zsmax,self.temp.dzhi,self.temp.dzlo, self.temp.ccmax, self.temp.chi2,self.temp.rchi2,self.eclip,G.signoise,self.star,self.baddata,self.unsure)) + self.image + ('      %d      %d      %d' % (self.flag1, self.flag2, self.flag3)) + '\n')
+                if self.objimage in i:
+                    f3.write(('%06d   %d    %.6f    %.6f   %.6f    %7.2f   %7.2f   %2.2f     %d      %2.2f      %d    %d     %d ' % (G.objid,self.tempid,self.temp.zsmax,self.temp.dzhi,self.temp.dzlo, self.temp.ccmax, self.temp.chi2,self.temp.rchi2,self.eclip,G.signoise,self.star,self.baddata,self.unsure)) + self.objimage + ('      %d      %d      %d' % (self.flag1, self.flag2, self.flag3)) + '\n')
                 else:
                     f3.write(i)
             for i in e:
-                if self.image in i:
-                    f4.write(('%06d %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %d %d %3.2f %d %d %d' % (G.objid,self.t23.zsmax,self.t23.dzhi,self.t23.dzlo, self.t23.ccmax, self.t23.chi2,self.t23.rchi2,self.t24.zsmax,self.t24.dzhi,self.t24.dzlo, self.t24.ccmax, self.t24.chi2,self.t24.rchi2,self.t25.zsmax,self.t25.dzhi,self.t25.dzlo, self.t25.ccmax, self.t25.chi2,self.t25.rchi2,self.t26.zsmax,self.t26.dzhi,self.t26.dzlo, self.t26.ccmax, self.t26.chi2,self.t26.rchi2,self.t27.zsmax,self.t27.dzhi,self.t27.dzlo, self.t27.ccmax, self.t27.chi2,self.t27.rchi2,self.tempid,self.eclip,G.signoise,self.star,self.baddata,self.unsure)) + ' '+ self.image + (' %d %d %d' % (self.flag1, self.flag2, self.flag3)) + '\n')
+                if self.objimage in i:
+                    f4.write(('%06d %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %d %d %3.2f %d %d %d' % (G.objid,self.t23.zsmax,self.t23.dzhi,self.t23.dzlo, self.t23.ccmax, self.t23.chi2,self.t23.rchi2,self.t24.zsmax,self.t24.dzhi,self.t24.dzlo, self.t24.ccmax, self.t24.chi2,self.t24.rchi2,self.t25.zsmax,self.t25.dzhi,self.t25.dzlo, self.t25.ccmax, self.t25.chi2,self.t25.rchi2,self.t26.zsmax,self.t26.dzhi,self.t26.dzlo, self.t26.ccmax, self.t26.chi2,self.t26.rchi2,self.t27.zsmax,self.t27.dzhi,self.t27.dzlo, self.t27.ccmax, self.t27.chi2,self.t27.rchi2,self.tempid,self.eclip,G.signoise,self.star,self.baddata,self.unsure)) + ' '+ self.objimage + (' %d %d %d' % (self.flag1, self.flag2, self.flag3)) + '\n')
                 else:
                     f4.write(i)
             f3.close()
             f4.close()
-            filelocation2 = '/Users/blorenz/Desktop/COSMOSData/corFitsFileOut/crossCorOut/' + letnum + '/' + 'cor_' + self.image.replace('.fits','.png')
-            filelocation3 = '/Users/blorenz/Desktop/COSMOSData/corFitsFileOut/crossCorOut/' + letnum + '/' + 'cor_' + self.image.replace('.fits','2.png')
+            filelocation2 = outloc + 'cc_' + self.objimage.replace('.fits','.png')
+            filelocation3 = filelocation2 = outloc + 'cc_' + self.objimage.replace('.fits','2.png')
             self.fig.savefig(filelocation2)
             #self.fig2.savefig(filelocation3)
             plt.clf()
@@ -632,7 +694,7 @@ class Plot():
         def eFlag2(event):
             if self.flag2 == 1:
                 self.flag2 = 0
-                bflag2.label.set_text('Mark Range')
+                bflag2.label.set_text('Mark Note')
             else:
                 self.flag2 = 1
                 bflag2.label.set_text('Unmark Range')
@@ -936,81 +998,49 @@ class CCcalc:
                 print "Template %d,  Chi^2=%.2f   RChi^2=%.2f  CCmax=%.2f  zsmax=%.6f" % (t,self.chi2,self.rchi2,ccmax,zsmax)
                 
     
-objid = 0
-#if len(argv[1]) == 2:
-#    letnum = argv[1]
-elif len(argv[1]) == 9:
-    objid = argv[1][:6]
-    letnum = argv[1][7:]
-elif  argv[1] == 'unsure':
-    a6 = np.genfromtxt('crossCorOut/a6.txt',dtype=None,names=True)
-    b6 = np.genfromtxt('crossCorOut/b6.txt',dtype=None,names=True)
-    d6 = np.genfromtxt('crossCorOut/d6.txt',dtype=None,names=True)
-    e6 = np.genfromtxt('crossCorOut/e6.txt',dtype=None,names=True)
-    f6 = np.genfromtxt('crossCorOut/f6.txt',dtype=None,names=True)
-    g6 = np.genfromtxt('crossCorOut/g6.txt',dtype=None,names=True)
-    h6 = np.genfromtxt('crossCorOut/h6.txt',dtype=None,names=True)
-    i6 = np.genfromtxt('crossCorOut/i6.txt',dtype=None,names=True)
-    b7 = np.genfromtxt('crossCorOut/e7.txt',dtype=None,names=True)
-    e7 = np.genfromtxt('crossCorOut/b7.txt',dtype=None,names=True)
 
-    data = np.concatenate((a6,b6,d6,e6,f6,g6,h6,i6,b7,e7))
+if readunsure == 1:
+    data = np.genfromtxt(outfile,dtype=None,names=True)
     dataunsure = data[data['Unsure'] == 1]
     dataunsure = dataunsure[dataunsure['Star'] == 0]
-    dataunsure = dataunsure[dataunsure['Flag1'] == 0]
-    dataunsure = dataunsure[dataunsure['Flag2'] == 0]
-    dataunsure = dataunsure[dataunsure['Flag3'] == 0]
+    dataunsure = dataunsure[dataunsure['Revisit'] == 0]
+    dataunsure = dataunsure[dataunsure['Note'] == 0]
+    dataunsure = dataunsure[dataunsure['Unusable'] == 0]
     #dataunsure = dataunsure[dataunsure['SN'] > 5]
-    #unsureims = [(j['ImageName'],j['SN']) for j in dataunsure]
-    #print unsureims
     tarr = [i for i in reversed(dataunsure[np.argsort(dataunsure['SN'])])]
     imarr = []
     for i in range(len(tarr)):
         imarr.append(tarr[i]['ImageName'])
-    #imarr = [j for j in dataunsure['ImageName'] if j[17]+j[15] == 'g6']
-    im = [Plot(i,m=1) for i in imarr]
-    #for j in range(len(im)):
-    #    im[j].doCC(im[j].image,im[j].eclip,0)
+    im = [Plot(imloc+i,m=1) for i in imarr]
     for k in range(len(im)):
         im[k].doCC(im[k].image,im[k].eclip,0)
         print 'Image ', k+1, ' / ', len(im)
         print imarr[k]
-        letnum = imarr[k][17]+imarr[k][15]
         im[k].createPlot(m=1)
-    exit('Finished unsure objects')
-else:
-     exit('Enter a mask, eg "a6", to run full mask. \nEnter objid and mask, eg "123456 a6", to open just that object')
-exten = 'feb1' + letnum[1] + '_' + letnum[0] + 'big.fits'
+    sys.exit('Finished unsure objects')
 if objid:
-    im = Plot(glob.glob('cor_' + objid + '_' + exten)[0],m=1)
+    print 'cor_' + objid + '_' + imname
+    im = Plot(glob.glob(imloc + 'cor_' + objid + '_' + imname)[0],m=1)
     im.doCC(im.image,im.eclip,0)
-    #f = open('/Users/blorenz/Desktop/COSMOSData/corFitsFileOut/crossCorOut/' + letnum + '.txt','a+')
-    #outpkl = open('/Users/blorenz/Desktop/COSMOSData/corFitsFileOut/crossCorOut/' + 'cc_' + objid + '.pkl','wb')
     im.createPlot(m=1)
-    #dilltest = dill.dumps(im)
-    #readpkl = open('/Users/blorenz/Desktop/COSMOSData/corFitsFileOut/crossCorOut/' + 'cc_' + objid + '.pkl','rb')
-    #testpkl = dill.loads(dilltest)
-    #testpkl.createPlot(m=1)
-    
 else:
-    yesno = raw_input('Are you sure you want to overwrite template ' + letnum + '? (y/n) ')
-    if yesno == 'y':
-        imarr = glob.glob('cor_??????_' + exten)
-        f = open('/Users/blorenz/Desktop/COSMOSData/corFitsFileOut/crossCorOut/' + letnum + '.txt','w+')
-        f2 = open('/Users/blorenz/Desktop/COSMOSData/corFitsFileOut/crossCorOut/' + 'verb_' + letnum + '.txt','w+')
-        f.write('#OBJID  temp    z           dzhi        dzlo        ccmax     chi2    rchi2  eclip     S/N      Star Bad  Unsure    ImageName            Flag1  Flag2  Flag3\n')
-        f2.write('#OBJID z23 dzhi23 dzlo23 ccmax23 chi223 rchi223 z24 dzhi24 dzlo24 ccmax24 chi224 rchi224 z25 dzhi25 dzlo25 ccmax25 chi225 rchi225 z26 dzhi26 dzlo26 ccmax26 chi226 rchi226 z27 dzhi27 dzlo27 ccmax27 chi227 rchi227 temp eclip S/N Star Bad Unsure ImageName Flag1 Flag2 Flag3\n')
-        im = [Plot(i) for i in imarr]
-        for j in range(len(im)):
-            im[j].doCC(im[j].image,im[j].eclip,0)
-        #for k in range(len(im)):
-            print 'Image ', j+1, ' / ', len(im)
-            print imarr[j]
-            im[j].createPlot()
-        f.close()
-        f2.close()
-    else:
-        pass
+    #yesno = raw_input('Are you sure you want to overwrite output from ' + imname + '? (y/n) ')
+    #if yesno == 'y':
+    outdata = np.genfromtxt(outfile,dtype=None,names=True)
+    imarr = glob.glob(imloc + 'cor_??????_' + imname)
+    #for i,j in enumerate(imarr):
+    #    if outdata[i]['OBJID'] == 0:
+    #        im = Plot(j,m=1)
+    #        im.doCC(im.image,im.eclip,0)
+    #        print 'Image ', i+1, ' / ', len(imarr)
+    #        print outdata[i]['ImageName']
+    #        im.createPlot(m=1)
+    im = [Plot(j,m=1) for i,j in enumerate(imarr) if outdata[i]['OBJID'] == 0]
+    for k in range(len(im)):
+        im[k].doCC(im[k].image,im[k].eclip,0)
+        print 'Image ', k+1, ' / ', len(im)
+        print imarr[k]
+        im[k].createPlot(m=1)
     
  
 
