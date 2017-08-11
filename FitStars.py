@@ -1,17 +1,45 @@
-from sys import argv
+import sys
 import numpy as np
 from astropy.io import fits
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button,SpanSelector,CheckButtons
 from matplotlib import gridspec
 
+#Usage: run FitStars.py 'imagename' (order) 
+'''
+imagename - string - name of your image, including file path
+order - int - optional - order of the polynomial to be fit. Default is 15, and can be changed easily in the GUI
+
+outloc - string - where your files will be output, defaults to the same as input
+
+imname - string - automatically set to just the image name
+imloc - string - automatically set to just the image location
+'''
+outloc = 0
+order = 15
+
+imagename = sys.argv[1]
+imname = imagename
+while imname.find('/') != -1:
+    imname = imname[imname.find('/')+1:]
+imloc = imagename.replace(imname,'')
+if not outloc: outloc = imloc
+
 class Plot():
     def __init__(self):
-        self.image = argv[1]
-        self.order = int(argv[2])
-        self.add = 1
+        '''
+        Main routine that sets up the calculations and the GUI
 
-        hdu = fits.open(self.image)[0]
+        order - int - order of the polynomial fit
+        add - boolean - 1 to add to mask or correction, 0 to subtract.
+        
+        
+        '''
+        if len(sys.argv) == 3: self.order = int(sys.argv[2])
+        else: self.order = order
+        self.add = 0
+
+        hdu = fits.open(imagename)[0]
         self.header = hdu.header
         data = hdu.data
         self.obj,noise,flat,sky = data.astype(float)
@@ -28,6 +56,11 @@ class Plot():
 
         
     def Smooth(self,y,p=50):
+        '''
+        Smooths the spectrum by comparing a given pixel to the 50 pixels beside it
+        y - the spectrum to smooth
+        p - float, 0 to 1 - the percentage to smooth to. i.e. 0.95 takes the 95% highest pixel at each step. 0.5 is just a median.
+        '''
         m = np.zeros(y.shape,y.dtype)
         for j in range(len(y)):
             a,b = np.clip([j-25,j+26],0,len(y)-1)
@@ -38,8 +71,12 @@ class Plot():
         return m
 
     def svdfit(self,b,y):
+        '''
+        Fits the polynomial with single value decomposition
+        b - basis function
+        y - spectrum
+        '''
         decomp = np.linalg.svd(b,full_matrices=False)
-        #print decomp[2].shape
         sol1 = np.transpose(decomp[2])
         sol2 = self.divz(1.0,decomp[1])
         sol3 = np.dot(np.transpose(decomp[0]),y)
@@ -59,10 +96,22 @@ class Plot():
         self.l4.set_ydata(self.diff)
         self.l5.set_ydata(self.fit)
         self.k1.set_ydata(self.corr)
+        self.k3.set_ydata(self.good)
         self.ax1.legend(loc=1)
         plt.draw()
 
     def runCalc(self,redo=0,fixtel=0):
+        '''
+        Main calculations are here
+        redo - boolean - set to 1 when the mask has been changed by the user
+        fixtel - boolean - set to 1 when the telluric spectrum mask has been changed by the user
+        obj - spectrum
+        m - smoothed spectrum
+        diff - difference between object and smoothed spectrum
+        mask - the mask applied to to polynomial, cutting bad pixels
+        fit - the polynomial fit
+        corr - the telluric correction spectrum (primary output)
+        '''
         self.m = self.Smooth(self.obj,p=95)
         self.m = self.m - np.median(self.m-self.obj)
 
@@ -79,7 +128,8 @@ class Plot():
 
         self.fit = np.dot(sol,basis)
         n = self.divz(self.obj,self.fit)
-        
+
+        #Atmospheric absorption lines
         Bband = 6865,7060
         H20band = 7148,7340
         Aband = 7580,7730
@@ -92,33 +142,45 @@ class Plot():
         
 
     def createPlot(self):
+        '''
+        Sets up the plot
+        '''
         #Plot for poster/presentation/writeup
-        self.fig2 , self.a2x = plt.subplots(figsize=(10,4))
-        self.a2x.plot(self.wavelength,self.obj,label='OBJID ' + str(self.header['OBJID']),color='cornflowerblue')
-        self.a2x.plot(self.wavelength,self.obj*self.mask,label='Mask',color='orange')
-        self.a2x.set_xlabel('$\lambda$')
-        self.a2x.set_ylabel('Counts')
-        self.a2x.set_title('Spectrum of ' + self.image)
-        self.a2x.set_ylim(-1000,max(self.obj)*1.1)
+        #self.fig2 , self.a2x = plt.subplots(figsize=(10,4))
+        #self.a2x.plot(self.wavelength,self.obj,label='OBJID ' + str(self.header['OBJID']),color='cornflowerblue')
+        #self.a2x.plot(self.wavelength,self.obj*self.mask,label='Mask',color='orange')
+        #self.a2x.set_xlabel('$\lambda$')
+        #self.a2x.set_ylabel('Counts')
+        #self.a2x.set_title('Spectrum of ' + imname)
+        #self.a2x.set_ylim(-1000,max(self.obj)*1.1)
         #plt.axvspan(6865,7060, color='grey', alpha=0.35,label='Atmospheric Absorption Band')
         #plt.axvspan(7148,7340, color='grey', alpha=0.35)
         #plt.axvspan(7580,7730, color='grey', alpha=0.35)
         #plt.axvspan(8120,8410, color='grey', alpha=0.35)
-        self.a2x.legend()
-        plt.show()
-        #Plot for poster/presentation/writeup
+        #self.a2x.legend()
+        #plt.show()
+        #Second Plot
         #self.fig2 , self.a2x = plt.subplots(figsize=(10,4))
         #self.a2x.plot(self.wavelength,self.corr,color='black')
         #self.a2x.set_xlabel('$\lambda$')
         #self.a2x.set_ylabel('Telluric Transmission')
-        #self.a2x.set_title('Tellluric Correction for ' + self.image)
+        #self.a2x.set_title('Tellluric Correction for ' + imname)
         #self.a2x.set_ylim(-0.1,1.1)
         #plt.show()
-        fweoj= fqwejiw
         self.fig = plt.figure(figsize=(10,8))
         gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])
         self.ax1 = plt.subplot(gs[0])
+        #Shows atmospheric absorption regions
+        plt.axvspan(6865,7060, color='grey', alpha=0.08,label='Atmospheric Absorption Band')
+        plt.axvspan(7148,7340, color='grey', alpha=0.08)
+        plt.axvspan(7580,7730, color='grey', alpha=0.08)
+        plt.axvspan(8120,8410, color='grey', alpha=0.08)
         self.ax2 = plt.subplot(gs[1])
+        #Shows atmospheric absorption regions
+        plt.axvspan(6865,7060, color='grey', alpha=0.08,label='Atmospheric Absorption Band')
+        plt.axvspan(7148,7340, color='grey', alpha=0.08)
+        plt.axvspan(7580,7730, color='grey', alpha=0.08)
+        plt.axvspan(8120,8410, color='grey', alpha=0.08)
         self.l1, = self.ax1.plot(self.wavelength, self.obj, label='Data', color='cornflowerblue')
         self.l2, = self.ax1.plot(self.wavelength,self.mask*self.obj, label='Mask', color='orange')
         self.l3, = self.ax1.plot(self.wavelength,self.m, label='Smooth', color='indianred',visible=False)
@@ -126,7 +188,7 @@ class Plot():
         self.l5, = self.ax1.plot(self.wavelength,self.fit, label=(str(self.order) + '-Term Fit'), color='darkgreen',visible=True)
         self.ax1.set_xlabel('$\lambda$')
         self.ax1.set_ylabel('Counts')
-        self.ax1.set_title('Spectrum of ' + self.image)
+        self.ax1.set_title('Spectrum of ' + imname)
         self.ax1.set_ylim(min(self.diff)*1.1,max(self.obj)*1.1)
     
         self.k1, = self.ax2.plot(self.wavelength,self.corr, label='Correction', color='black')
@@ -139,21 +201,26 @@ class Plot():
         rax = plt.axes([0.105, 0.376, 0.15, 0.15])
         check = CheckButtons(rax, ('Obj', 'Masked Obj','Smooth Obj','Difference', 'Fitted Function'), (True, True, False, False, True))
 
-        self.text = self.fig.text(0.922,0.433,'Add')
         self.ax1.legend(loc=1)
 
+        print 'Drag over the top plot to add or subtract regions of the mask, toggling your mode with the button on the right. Drag over the bottom plot to add or remove regions from the telluric correction file once you are happy witht he top plot. You can change the order of the polynomial with the +,-,+5,-5 buttons. Click Save when you are finished or close the window to end without saving.'
+
+#=================================================
+#Buttons and Sliders
+#=================================================
+
+#Toggle whether or not to add or subtract
         def maskMode(event):
             self.add = not self.add
-            plt.gcf().texts.remove(self.text)
             if self.add:
-                self.text = self.fig.text(0.922,0.433,'Add')
+                bmode.label.set_text('Mode: Add')
             else:
-                self.text = self.fig.text(0.922,0.433,'Sub')
+                bmode.label.set_text('Mode: Sub')
             plt.draw()
 
+#Save the spectrum when finished
         def saveSpec(event):
             headerout = self.header
-            #[headerout.pop(key) for key in headerout.keys() if key[:3] == "ROW"]
             headerout['ROW1'] = 'Telluric Correction'
             headerout['ROW2'] = 'Spectrum'
             headerout['ROW3'] = 'Pixel Mask'
@@ -162,12 +229,20 @@ class Plot():
             dataout = np.concatenate((self.corr,self.obj,self.mask,self.fit))
             dataout = dataout.reshape(4,len(self.wavelength))      
             hdu = fits.PrimaryHDU(header = headerout, data = dataout)
-            filelocation = '/Users/blorenz/Desktop/COSMOSData/FitsFileOut/' + 'tc_' + self.image
+            filelocation = outloc + 'tc_' + imname
             hdu.writeto(filelocation,overwrite=True)
-            filelocation2 = '/Users/blorenz/Desktop/COSMOSData/FitsFileOut/ImageOut/' + 'tc_' + self.image.replace('.fits','.png')
+            filelocation2 = outloc + 'tc_' + imname.replace('.fits','.png')
             self.fig.savefig(filelocation2)
             print('Correction saved to ' + filelocation)
+            plt.close(self.fig)
 
+#Reset the plots if you messed something up
+        def bReset(event):
+            self.runCalc()
+            self.l2.set_ydata(self.mask*self.obj)
+            self.updatePlot()
+            
+#Buttons for changing the order
         def UP(event):
             self.order += 1
             self.l5.set_label((str(self.order) + '-Term Fit'))
@@ -193,7 +268,8 @@ class Plot():
                 self.order = 1
             self.l5.set_label((str(self.order) + '-Term Fit'))
             self.updatePlot()
-    
+
+#Checks to display different parts of the star spectrum
         def checkButton(label):
             if label == 'Obj':
                 self.l1.set_visible(not self.l1.get_visible())
@@ -208,7 +284,8 @@ class Plot():
             self.ax1.legend(loc=1)
             plt.draw()
         check.on_clicked(checkButton)
-    
+
+#Slider that adds or subtracts from the mask
         def maskslider(xmin, xmax):
             indmin, indmax = np.searchsorted(self.wavelength, (xmin, xmax))
             indmax = min(len(self.wavelength) - 1, indmax)
@@ -220,28 +297,31 @@ class Plot():
             self.updatePlot()
         span = SpanSelector(self.ax1, maskslider, 'horizontal', useblit=True, rectprops=dict(alpha=0.5, facecolor='red'))
 
+#Slider that adds or subtractions from the telluric correction
         def fixtellslider(xmin,xmax):
             indmin, indmax = np.searchsorted(self.wavelength, (xmin, xmax))
             indmax = min(len(self.wavelength) - 1, indmax)
             indmincomp = indmin+self.wavelength[0]
             indmaxcomp = indmax+self.wavelength[0]
-            self.good = np.concatenate((self.good[:indmin],(indmax-indmin)*[1.0],self.good[indmax:]))
-            self.k3.set_ydata(self.good)
+            if not self.add: self.good = np.concatenate((self.good[:indmin],(indmax-indmin)*[1.0],self.good[indmax:]))
+            else: self.good = np.concatenate((self.good[:indmin],(indmax-indmin)*[0.0],self.good[indmax:]))
             self.runCalc(redo=1,fixtel=1)
             self.k1.set_ydata(self.corr)
+            self.k3.set_ydata(self.good)
             plt.draw()
         span2 = SpanSelector(self.ax2, fixtellslider, 'horizontal', useblit=True, rectprops=dict(alpha=0.5, facecolor='red'))
         
 
-        #update = plt.axes([0.804, 0.376, 0.085, 0.05])
-        #bupdate = Button(update, 'Update Fit')
-        #bupdate.on_clicked(updatePlot)
-        mode = plt.axes([0.893, 0.376, 0.085, 0.05])
-        bmode = Button(mode, 'Mask Mode')
+#Creation of the buttons
+        mode = plt.axes([0.878, 0.376, 0.10, 0.05])
+        bmode = Button(mode, 'Mode: Sub')
         bmode.on_clicked(maskMode)
-        savespec = plt.axes([0, 0, 0.05, 0.05])
+        savespec = plt.axes([0, 0, 0.1, 0.05])
         bsavespec = Button(savespec, 'Save')
         bsavespec.on_clicked(saveSpec)
+        reset = plt.axes([0.5, 0.01, 0.1, 0.03])
+        breset = Button(reset, 'Reset')
+        breset.on_clicked(bReset)
         up = plt.axes([0.26, 0.401, 0.02, 0.02])
         bup = Button(up, '+')
         bup.on_clicked(UP)
@@ -257,6 +337,7 @@ class Plot():
         plt.tight_layout()
         plt.show()
 
-    
+#=================================================
 
+#Run the main routine
 Plot()
