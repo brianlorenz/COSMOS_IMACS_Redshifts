@@ -13,17 +13,15 @@ from matplotlib.widgets import Slider, Button, SpanSelector
 #Example: run ExtractSpectra.py "feb16_abig.fits" 45
     #This pulls up only object 45, then you can move through the rest from there. 
 '''
-Takes big.fits, bigsig.fits, bigext.fits, bigsky.fits files and outputs a .fits file for each object, containing one row each of spectrum, noise, flat, and sky. 
+Extract a .FITS file for each object with spectrum, noise, flat, and sky
+
+Takes big.fits, bigsig.fits, bigext.fits, bigsky.fits files and outputs a 
+.fits file for each object, containing one row each of spectrum, noise, flat, and sky. 
 objnum - the objects' number in the mask (see header)
 imloc - location of the big.fits file. Input to the code
 outloc - location to output all of the extracted .fits files
 showbad - set to 1 if you want to immediately fix bad fits by hand, 0 if you do not
 '''
-try: imloc = sys.argv[1]
-except: sys.exit('Usage: run ExtractSpectra.py imagelocation (objnum)')
-outloc = '/Users/blorenz/Desktop/testout/'
-showbad = 1
-
 class FunPlot:
     def __init__(self,image):
         self.image = image
@@ -141,7 +139,8 @@ class FunPlot:
 
 
     
-#Plotting function - should be run after findRows(). Give this an object number, and it will plot an appropriate amount of rows determined by the standard deviations of the gaussian fits.
+#Plotting function - should be run after findRows(). Give this an object number, and it will plot an appropriate amount of rows 
+#determined by the standard deviations of the gaussian fits.
     def plotObj(self,objnum,close=0):
         self.redo = 0
         self.close = close
@@ -206,7 +205,9 @@ class FunPlot:
             self.ax3.legend(bbox_to_anchor=(1.22, 1.0))
             plt.draw()
 
-        #The calculates the gaussian fit for the given object number, and creates the plots if this is the first time. This does not need ot be called everytime a plot needs to be updated (e.g. zoomzlider) but is called whenever a gaussian needs to be refit (e.g. zoomslider3 or moving to the next objnum). 
+        #The calculates the gaussian fit for the given object number, and creates the plots if this is the first time. 
+        #This does not need ot be called everytime a plot needs to be updated (e.g. zoomzlider) but is called whenever a 
+        #gaussian needs to be refit (e.g. zoomslider3 or moving to the next objnum). 
         def calcPlot(objnum,createplot=1):
             '''
             ax1 - contains the plot of the data and noise (noise is added in quadriture)
@@ -255,7 +256,9 @@ class FunPlot:
                 #self.ax2.set_title('Zoom')
                 #self.ax3.set_title('Gaussian Fit')
                 if self.instruct:
-                    print "Drag over the Gaussian plot to attempt to refit a Guassian over the given region. \nIf the fitting isn't working, click on the Gaussian plot to plot a single row, then use the arrow buttons to adjust the range. \nWhen finished, press savespec before moving on."
+                    print "Drag over the Gaussian plot to attempt to refit a Guassian over the given region."
+                    print "If the fitting isn't working, click on the Gaussian plot to plot a single row, then use the arrow buttons to adjust the range."
+                    print "When finished, press savespec before moving on."
                     self.instruct = 0
             updatePlot()
             redoGauss()
@@ -320,7 +323,7 @@ class FunPlot:
             hdu = fits.PrimaryHDU(header = headerout, data = dataout)
             filelocation2 = outloc + ('%06d' % int(self.objids[self.objnum-1])) + '_' + self.imname
             self.fig.savefig(outloc + ('%06d' % int(self.objids[self.objnum-1])) + '_' + self.imname.replace('.fits','.png'))
-            hdu.writeto(filelocation2,overwrite=True)
+            hdu.writeto(filelocation2,clobber=True,output_verify='ignore')#overwrite=True)
             print('Spectrum saved to ' + filelocation2)
             f3 = open(self.outfile,"r+")
             d = f3.readlines()
@@ -328,7 +331,9 @@ class FunPlot:
             f3.write(d[0])
             for i in d[1:]:
                 if self.objnum == int(i[7:10]):
-                    f3.write('%06d %3d    %4d %4d   %4d     %4d    %d\n' % (int(self.objids[self.objnum-1]),self.objnum,self.mu2+self.xstart,self.stddev2,self.leftbound,self.rightbound-1,self.flag))
+                    f3.write('%06d %3d    %4d %4d   %4d     %4d    %d\n' % (int(self.objids[self.objnum-1]),self.objnum,
+                                                                            self.mu2+self.xstart,self.stddev2,
+                                                                            self.leftbound,self.rightbound-1,self.flag))
                 else:
                     f3.write(i)
             f3.close()
@@ -474,8 +479,14 @@ class FunPlot:
             ax4.set_ylabel('Row Number')
             image_data = self.hdu.data[self.csecta[self.objnum-1]:self.csectb[self.objnum-1]+1]
             fitsplot = ax4.imshow(image_data, cmap='gray',clim=(-240.0, 240.0),aspect='auto')
-            h1, = ax4.plot((0,len(wavelength)),(leftbound-self.csecta[self.objnum-1],leftbound-self.csecta[self.objnum-1]),color='mediumseagreen')
-            h2, = ax4.plot((0,len(wavelength)),(rightbound-1-self.csecta[self.objnum-1],rightbound-1-self.csecta[self.objnum-1]),color='mediumseagreen')
+            h1, = ax4.plot((0,len(wavelength)),
+                           (leftbound-self.csecta[self.objnum-1],
+                            leftbound-self.csecta[self.objnum-1]),
+                           color='mediumseagreen')
+            h2, = ax4.plot((0,len(wavelength)),
+                           (rightbound-1-self.csecta[self.objnum-1],
+                            rightbound-1-self.csecta[self.objnum-1]),
+                           color='mediumseagreen')
             ax4.set_xlim(0,len(wavelength))
             ax4.set_yticks((0,25))
             ax4.set_yticklabels([self.csecta[self.objnum-1],self.csecta[self.objnum-1]+25])
@@ -502,7 +513,7 @@ class FunPlot:
             headerout['UPBOUND'] = rightbound-1
             hdu = fits.PrimaryHDU(header = headerout, data = dataout)
             filelocation2 = outloc + ('%06d' % int(objids[self.objnum-1])) + '_' + self.imname
-            hdu.writeto(filelocation2,overwrite=True)
+            hdu.writeto(filelocation2,clobber=True,output_verify='ignore')#overwrite=True)
             print 'Spectrum saved to ' + filelocation2 
             #Add the info to the text file output
             if new:
@@ -511,22 +522,31 @@ class FunPlot:
                 new = 0;
             else:
                 f = open(self.outfile,'a+')
-            f.write('%06d %3d    %4d %4d   %4d     %4d    %d\n' % (int(objids[self.objnum-1]),self.objnum,mu2+self.xstart,self.stddev2,leftbound,rightbound-1,self.flag))
+            f.write('%06d %3d    %4d %4d   %4d     %4d    %d\n' % (int(objids[self.objnum-1]),self.objnum,
+                                                                   mu2+self.xstart,self.stddev2,leftbound,
+                                                                   rightbound-1,self.flag))
             f.close()
             plt.close(fig)
 
-a = FunPlot(imloc)
+if __name__ == '__main__':
 
-if len(sys.argv) == 3:
-    a.plotObj(int(sys.argv[2]))
-elif len(sys.argv) == 2:
-    yesno = raw_input('Are you sure you want to overwrite output from ' + sys.argv[1] + '? (y/n) ')
-    if yesno == 'y':
-        a.outputData()
-        if showbad:
-            outdata = np.genfromtxt(a.outfile,dtype=None,names=True)
-            outdata = outdata[outdata['Flag'] == 1]
-            for i in range(len(outdata)):
-                a.plotObj(outdata[i]['Objnum'],close=1)            
+    try: imloc = sys.argv[1]
+    except: sys.exit('Usage: run ExtractSpectra.py imagelocation (objnum)')
+    outloc = './'
+    showbad = 1 #set to 1 if you want to immediately fix bad fits by hand, 0 if you do not
+    
+    a = FunPlot(imloc)
+    
+    if len(sys.argv) == 3:
+        a.plotObj(int(sys.argv[2]))
+    elif len(sys.argv) == 2:
+        yesno = raw_input('Are you sure you want to overwrite output from ' + sys.argv[1] + '? (y/n) ').lower()
+        if yesno == 'y':
+            a.outputData()
+            if showbad:
+                outdata = np.genfromtxt(a.outfile,dtype=None,names=True)
+                outdata = outdata[outdata['Flag'] == 1]
+                for i in range(len(outdata)):
+                    a.plotObj(outdata[i]['Objnum'],close=1)            
             
 
