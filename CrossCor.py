@@ -1129,6 +1129,9 @@ Plot() - sets up the object as a class that can be correlated
 doCC() - performs the cross correlation
 createPlot() - opens the GUI, which allows the user to modify and save the results of the correlation
 '''
+if tcorr: tcstr = 'cor_'
+else: tcstr = ''
+
 if readunsure == 1:
     data = np.genfromtxt(outfile,dtype=None,names=True)
     dataunsure = data[data['Unsure'] == 1]
@@ -1148,28 +1151,22 @@ if readunsure == 1:
         print imarr[k]
         im[k].createPlot()
     sys.exit('Finished unsure objects')
+
 if objid:
-    if tcorr:
-        objectimage = glob.glob(imloc + 'cor_' + objid + '_' + imname)
-        if not objectimage:
-            sys.exit('Cannot find ' + imloc + 'cor_' + objid + '_' + imname)
-    else: 
-        objectimage = glob.glob(imloc + objid + '_' + imname)
-        if not objectimage:
-            sys.exit('Cannot find ' + imloc + objid + '_' + imname)
+    objectimage = glob.glob(imloc + tcstr + objid + '_' + imname)
+    if not objectimage:
+        sys.exit('Cannot find ' + imloc + tcstr + objid + '_' + imname)
     im = Plot(objectimage[0])
     im.doCC(im.image,im.eclip,0)
     im.createPlot()
+
 else:
     outdata = np.genfromtxt(outfile,dtype=None,names=True)
-    if tcorr:
-        imarr = glob.glob(imloc + 'cor_??????_' + imname)
-        if not imarr:
-            sys.exit('No image files found of form ' + imloc + 'cor_??????_' + imname)
-    else:
-        imarr = glob.glob(imloc + '??????_' + imname)
-        if not imarr:
-            sys.exit('No image files found of form ' + imloc + '??????_' + imname)
+    if tcorr: tcstr = 'cor_'
+    else: tcstr = ''
+    imarr = glob.glob(imloc+tcstr+'??????_' + imname)
+    if not imarr:
+        sys.exit('No image files found of form ' + imloc +tcstr+'??????_' + imname)
     im = [Plot(j) for i,j in enumerate(imarr) if outdata[i]['OBJID'] == 0]
     for k in range(len(im)):
         im[k].doCC(im[k].image,im[k].eclip,0)
