@@ -23,8 +23,11 @@ usure - optional string -  set to the string 'unsure' to open only those objects
 Change to your dataset:
 wave1,wave2 - (int,int) - the wavelength range over which to correlate the data, can be changed by the user in the GUI
 zrange - (int,int) - the range of redshifts over which to search
-emclip - boolean - set True to clip emission lines by default, or False to keep them in. This setting can always be toggled within the GUI, but this value is what displays first.
-specplot - boolean - set to 1 if you want a second plot showing common spectral lines overlaid on the galaxy at the currect redshift. Can be kind of clunky, so default is off, but could be useful to enable for 'unsure' galaxies. Can be toggled in the GUI. Requires galaxlylines.dat in the same folder as your image
+emclip - boolean - set True to clip emission lines by default, or False to keep them in. 
+                   This setting can always be toggled within the GUI, but this value is what displays first.
+specplot - boolean - set to 1 if you want a second plot showing common spectral lines overlaid on the galaxy at the currect redshift. 
+                     Can be kind of clunky, so default is off, but could be useful to enable for 'unsure' galaxies. 
+                     Can be toggled in the GUI. Requires galaxlylines.dat in the same folder as your image
 
 Other:
 outloc - string - where your files will be output, defaults to the same as input
@@ -35,7 +38,8 @@ imname - string - this will be set to just the big.fits file automatically
 tcorr - boolean - will be automatically set to 0 if the correction code has not been run.
 
 
-NOTE: The outfile must correspond to the image that it was generated from. The file is generated once with all objects in the mask if it does not exist, and then is modified from there.
+NOTE: The outfile must correspond to the image that it was generated from. 
+      The file is generated once with all objects in the mask if it does not exist, and then is modified from there.
 '''
 
 wave1,wave2 = (5250,8000)
@@ -82,12 +86,30 @@ if not os.path.exists(outfile):
     else: imarr = glob.glob(imloc + '??????_' + imname)
     f = open(outfile,'w+')
     f2 = open(outfilev,'w+')
-    f.write('#OBJID  temp    z           dzhi        dzlo        ccmax     chi2    rchi2  eclip     S/N      Star Bad  Unsure    ImageName            Revisit  Note  Unusable\n')
-    f2.write('#OBJID z23 dzhi23 dzlo23 ccmax23 chi223 rchi223 z24 dzhi24 dzlo24 ccmax24 chi224 rchi224 z25 dzhi25 dzlo25 ccmax25 chi225 rchi225 z26 dzhi26 dzlo26 ccmax26 chi226 rchi226 z27 dzhi27 dzlo27 ccmax27 chi227 rchi227 temp eclip S/N Star Bad Unsure ImageName Revisit Note Unusable\n')
+    f.write('#OBJID  temp    z           dzhi        dzlo        ccmax     chi2    rchi2  eclip')
+    f.write('     S/N      Star Bad  Unsure    ImageName            Revisit  Note  Unusable\n')
+    f2.write('#OBJID z23 dzhi23 dzlo23 ccmax23 chi223 rchi223 z24 dzhi24 dzlo24 ccmax24 chi224 ')
+    f2.write('rchi224 z25 dzhi25 dzlo25 ccmax25 chi225 rchi225 z26 dzhi26 dzlo26 ccmax26 chi226 ')
+    f2.write('rchi226 z27 dzhi27 dzlo27 ccmax27 chi227 rchi227 temp eclip S/N Star Bad Unsure ')
+    f2.write('ImageName Revisit Note Unusable\n')
     for i in range(len(imarr)):
         objname = imarr[i].replace(imloc,'')
-        f.write(('%06d   %d    %.6f    %.6f   %.6f    %7.2f   %7.2f   %2.2f     %d      %2.2f      %d    %d     %d ' % (0,0,0,0,0,0,0,0,0,0,0,0,0)) + objname + ('      %d       %d       %d' % (0,0,0)) + '\n')
-        f2.write(('%06d %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %d %d %3.2f %d %d %d' % (0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)) + ' '+ objname + (' %d %d %d' % (0,0,0)) + '\n')
+        f.write(('%06d   %d    %.6f    %.6f   ' %(0,0,0,0)+
+                 '%.6f    %7.2f   %7.2f   %2.2f     ' %(0,0,0,0)+
+                 '%d      %2.2f      %d    %d     ' %(0,0,0,0)+
+                 '%d ' % (0)) + objname + 
+                ('      %d       %d       %d' % (0,0,0)) + '\n')
+        f2.write(('%06d %.6f %.6f %.6f ' %(0,0,0,0)+
+                  '%7.3f %7.3f %2.2f %.6f ' %(0,0,0,0)+
+                  '%.6f %.6f %7.3f %7.3f ' %(0,0,0,0)+
+                  '%2.2f %.6f %.6f %.6f ' %(0,0,0,0)+
+                  '%7.3f %7.3f %2.2f %.6f ' %(0,0,0,0)+
+                  '%.6f %.6f %7.3f %7.3f ' %(0,0,0,0)+
+                  '%2.2f %.6f %.6f %.6f ' %(0,0,0,0)+
+                  '%7.3f %7.3f %2.2f %d ' %(0,0,0,0)+
+                  '%d %3.2f %d %d ' %(0,0,0,0)+
+                  '%d' % (0)) + ' '+ objname + 
+                 (' %d %d %d' % (0,0,0)) + '\n')
     f.close()
     f2.close()
 
@@ -369,12 +391,27 @@ class Plot():
             f4.seek(0)
             for i in d:
                 if self.objimage in i:
-                    f3.write(('%06d   %d    %.6f    %.6f   %.6f    %7.2f   %7.2f   %2.2f     %d      %2.2f      %d    %d     %d ' % (G.objid,0,0,0,0,0,0,0,0,0,0,1,1)) + self.objimage + ('      %d      %d      %d' % (0,0,1)) + '\n')
+                    f3.write(('%06d   %d    %.6f    %.6f   ' % (G.objid,0,0,0)+
+                              '%.6f    %7.2f   %7.2f   %2.2f     ' % (0,0,0,0)+
+                              '%d      %2.2f      %d    %d     ' % (0,0,0,1)+
+                              '%d ' % (1)) + self.objimage + 
+                             ('      %d      %d      %d' % (0,0,1)) + '\n')
+
                 else:
                     f3.write(i)
             for i in e:
                 if self.objimage in i:
-                    f4.write(('%06d %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %d %d %3.2f %d %d %d' % (G.objid,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1)) + ' '+ self.objimage + (' %d %d %d' % (0,0,1)) + '\n')
+                    f4.write(('%06d %.6f %.6f %.6f '%(G.objid,0,0,0)+
+                              '%7.3f %7.3f %2.2f %.6f '%(0,0,0,0)+
+                              '%.6f %.6f %7.3f %7.3f '%(0,0,0,0)+
+                              '%2.2f %.6f %.6f %.6f '%(0,0,0,0)+
+                              '%7.3f %7.3f %2.2f %.6f '%(0,0,0,0)+
+                              '%.6f %.6f %7.3f %7.3f '%(0,0,0,0)+
+                              '%2.2f %.6f %.6f %.6f '%(0,0,0,0)+
+                              '%7.3f %7.3f %2.2f %d '%(0,0,0,0)+
+                              '%d %3.2f %d %d '%(0,0,0,1)+
+                              '%d' % (1)) + ' '+ self.objimage + 
+                             (' %d %d %d' % (0,0,1)) + '\n')
                 else:
                     f4.write(i)
             f3.close()
@@ -442,7 +479,9 @@ class Plot():
             else: self.m3, = self.ax3.plot((0,0),(0,0),color='darkred')
             if self.temp.zp>2: self.m4, = self.ax3.plot(self.temp.zs[3],self.temp.cc[3],color='darkred')
             else: self.m4, = self.ax3.plot((0,0),(0,0),color='darkred')
-            self.g1, = self.ax3.plot((self.temp.zs[self.temp.zp][self.temp.zmax],self.temp.zs[self.temp.zp][self.temp.zmax]),(-10000,10000),color='mediumseagreen')
+            self.g1, = self.ax3.plot((self.temp.zs[self.temp.zp][self.temp.zmax],
+                                      self.temp.zs[self.temp.zp][self.temp.zmax]),
+                                     (-10000,10000),color='mediumseagreen')
             self.ax3.set_xlim(self.zbound[0],self.zbound[1])
             self.ax3.set_ylim(min(self.temp.cc[0])*0.95,max(self.temp.cc[0]*1.05))
             self.ax3.set_xlabel('z')
@@ -635,12 +674,27 @@ class Plot():
             f4.seek(0)
             for i in d:
                 if self.objimage in i:
-                    f3.write(('%06d   %d    %.6f    %.6f   %.6f    %7.2f   %7.2f   %2.2f     %d      %2.2f      %d    %d     %d ' % (G.objid,self.tempid,self.temp.zsmax,self.temp.dzhi,self.temp.dzlo, self.temp.ccmax, self.temp.chi2,self.temp.rchi2,self.eclip,G.signoise,self.star,self.baddata,self.unsure)) + self.objimage + ('      %d      %d      %d' % (self.flag1, self.flag2, self.flag3)) + '\n')
+                    f3.write(('%06d   %d    %.6f    %.6f   ' % (G.objid,self.tempid,self.temp.zsmax,self.temp.dzhi)+
+                              '%.6f    %7.2f   %7.2f   %2.2f     ' % (self.temp.dzlo, self.temp.ccmax, self.temp.chi2,self.temp.rchi2)+
+                              '%d      %2.2f      %d    %d     ' % (self.eclip,G.signoise,self.star,self.baddata)+
+                              '%d ' % (self.unsure)) + self.objimage + 
+                             ('      %d      %d      %d' % (self.flag1, self.flag2, self.flag3)) + '\n')
                 else:
                     f3.write(i)
             for i in e:
                 if self.objimage in i:
-                    f4.write(('%06d %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %.6f %.6f %.6f %7.3f %7.3f %2.2f %d %d %3.2f %d %d %d' % (G.objid,self.t23.zsmax,self.t23.dzhi,self.t23.dzlo, self.t23.ccmax, self.t23.chi2,self.t23.rchi2,self.t24.zsmax,self.t24.dzhi,self.t24.dzlo, self.t24.ccmax, self.t24.chi2,self.t24.rchi2,self.t25.zsmax,self.t25.dzhi,self.t25.dzlo, self.t25.ccmax, self.t25.chi2,self.t25.rchi2,self.t26.zsmax,self.t26.dzhi,self.t26.dzlo, self.t26.ccmax, self.t26.chi2,self.t26.rchi2,self.t27.zsmax,self.t27.dzhi,self.t27.dzlo, self.t27.ccmax, self.t27.chi2,self.t27.rchi2,self.tempid,self.eclip,G.signoise,self.star,self.baddata,self.unsure)) + ' '+ self.objimage + (' %d %d %d' % (self.flag1, self.flag2, self.flag3)) + '\n')
+                    f4.write(('%06d %.6f %.6f %.6f ' %(G.objid,self.t23.zsmax,self.t23.dzhi,self.t23.dzlo) +
+                              '%7.3f %7.3f %2.2f %.6f ' %( self.t23.ccmax, self.t23.chi2,self.t23.rchi2,self.t24.zsmax) +
+                              '%.6f %.6f %7.3f %7.3f ' %(self.t24.dzhi,self.t24.dzlo, self.t24.ccmax, self.t24.chi2) +
+                              '%2.2f %.6f %.6f %.6f ' %(self.t24.rchi2,self.t25.zsmax,self.t25.dzhi,self.t25.dzlo) +
+                              '%7.3f %7.3f %2.2f %.6f ' %( self.t25.ccmax, self.t25.chi2,self.t25.rchi2,self.t26.zsmax) +
+                              '%.6f %.6f %7.3f %7.3f ' %(self.t26.dzhi,self.t26.dzlo, self.t26.ccmax, self.t26.chi2) +
+                              '%2.2f %.6f %.6f %.6f ' %(self.t26.rchi2,self.t27.zsmax,self.t27.dzhi,self.t27.dzlo) +
+                              '%7.3f %7.3f %2.2f %d ' %( self.t27.ccmax, self.t27.chi2,self.t27.rchi2,self.tempid) +
+                              '%d %3.2f %d %d ' %(self.eclip,G.signoise,self.star,self.baddata) +
+                              '%d' % (self.unsure)) + ' '+ self.objimage + 
+                             (' %d %d %d' % (self.flag1, self.flag2, self.flag3)) + '\n')
+
                 else:
                     f4.write(i)
             f3.close()
@@ -865,14 +919,16 @@ class CCcalc:
     '''
     Performs the cross correlation
     G - galaxy spectrum after going the class Spectrum()
-    range - int - number of points per iteration. Default 100, user can set to 60 or 20 in the GUI if they want to zoom in on a small peak that is beside a large one
+    range - int - number of points per iteration. 
+            Default 100, user can set to 60 or 20 in the GUI if they want to zoom in on a small peak that is beside a large one
     t - int - template number, either 23,24,25,26,27
     failure - boolean - set to 1 if the correlation fails
     z1, z2 - float,float - bounds over which to fit redshift
     dz0 - float - starting stepsize for the first iteration
     nz - int - number of steps
     zp - int - iteration number (first iteration is 0)
-    keepgoing - boolean - true if another iteration should be done, automatically set to false if enough iterations have been done to accurately compute errors
+    keepgoing - boolean - true if another iteration should be done, 
+                automatically set to false if enough iterations have been done to accurately compute errors
     w1,w2 - int,int - wavelength range over which to correlate. Data outside of this range is ignored.
     wavechange - int,int - if the user has modified the wavelength in the GUI, wavechange contains the new lower and upper bound
     o - int - order of the polynomial to fit to the galaxy and templates. Scales with the length of data over which we are fitting
@@ -914,7 +970,8 @@ class CCcalc:
 
     def rerunCC(self,newcc,inrange,zbound):
         '''
-        This is done of the user clicks on a different peak - instead of rerunning the whole template, we can skip the first run through and start at the second, near where the user clicked.
+        This is done if the user clicks on a different peak - 
+        instead of rerunning the whole template, we can skip the first run through and start at the second, near where the user clicked.
         See above docstring for explanation of variables
         '''
         self.range = inrange
