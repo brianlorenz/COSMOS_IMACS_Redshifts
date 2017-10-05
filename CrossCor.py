@@ -14,11 +14,13 @@ from astropy.convolution import convolve, Box1DKernel
 
 #Usage: run CrossCor.py imagename ('objid')
 #Usage: run CrossCor.py imagename ('unsure')
+#Usage: run CrossCor.py imagename ('inter')
 '''
 Inputs:
 imagename - string -  set to be your big.fits file, including the path.
 objid - optional string -  set to the 6-letter object id of a single object to open only that one
 usure - optional string -  set to the string 'unsure' to open only those objects which the user flagged as unsure
+inter - optional string -  set to the string 'inter' to run interactively; this is automatically on if looking at 1 objid
 
 Change to your dataset:
 wave1,wave2 - (int,int) - the wavelength range over which to correlate the data, can be changed by the user in the GUI
@@ -42,15 +44,16 @@ NOTE: The outfile must correspond to the image that it was generated from.
       The file is generated once with all objects in the mask if it does not exist, and then is modified from there.
 '''
 
-wave1,wave2 = (5250,8000)
-zrange = (0.2,0.5)
-emclip = False
+wave1,wave2 = (3900,8200)
+zrange = (0.01,0.4)
+emclip = True
 specplot = 0
 
 outloc = 0
 outname = 0
 temploc = 0
 readunsure = 0
+interactive = 0
 objid = 0
 tcorr = 1 
 
@@ -60,8 +63,11 @@ imagename = sys.argv[1]
 if len(sys.argv) == 3:
     if sys.argv[2] == 'unsure':
         readunsure = 1
+    if sys.argv[2] == 'inter':
+        interactive = 1
     else:
         objid = sys.argv[2]
+        interactive = 1
 
 imname = imagename
 while imname.find('/') != -1:
@@ -233,7 +239,8 @@ class Spectrum():
 		    
     def GetBadPixels(self,good=0,changeclip=0):
         if hasattr(self,"noise"):
-            bad = 1.*np.logical_or(np.less_equal(self.spec,1e-4),np.less_equal(self.noise,1e-4))
+#            bad = 1.*np.logical_or(np.less_equal(self.spec,1e-4),np.less_equal(self.noise,1e-4))
+            bad = 1.*np.logical_or(np.less_equal(self.spec,-3*self.noise),np.less_equal(self.noise,1e-4))
             for skyline in skylines:
                 bad = 1.*np.logical_or(bad,np.greater(self.wavelength,skyline-3*self.cdelt1)*np.less(self.wavelength,skyline+3*self.cdelt1))
             for absorb in telluric:
@@ -317,6 +324,7 @@ class Plot():
         self.star = 0
         self.baddata = 0
         self.unsure = 0
+        self.interactive = interactive
         self.failure = 0
         self.flag1 = 0
         self.flag2 = 0
@@ -831,10 +839,14 @@ class Plot():
         bmkspec.on_clicked(mkSpec)
 
         save = plt.axes([0.0, 0.0, 0.1, 0.05])
-        bsave = Button(save, 'Save')
-        bsave.on_clicked(Bsave)
-        if self.mkspec: self.mkspecplot()
-        plt.show()
+        if self.interactive:
+            bsave = Button(save, 'Save')
+            bsave.on_clicked(Bsave)
+            if self.mkspec: self.mkspecplot()
+            plt.show()
+        else:
+            Bsave(self)
+        
 
 #==============================================================
             
@@ -1020,7 +1032,7 @@ class CCcalc:
                     lim = (np.median(G.spec)*0.25,np.median(G.spec)*1.75)
                     outGraph(G.wavelength,Gp,G.objid,'pl',lim=lim)
 
-                Gp2 = FitPoly(G.spec,G.noise,G.continuum,G.wavelength,20,4900,10000)
+                Gp2 = FitPoly(G.spec,G.noise,G.continuum,G.wavelength,int((1e4-min([w1,4900]))/250.),min([w1,4900]),10000)
                 Gm2 = 1.*G.good2
                 Gw2 = divz(Gm2,G.noise)
                 Gr2 = (G.spec-Gp2)*Gw2
@@ -1167,12 +1179,22 @@ else:
     imarr = glob.glob(imloc+tcstr+'??????_' + imname)
     if not imarr:
         sys.exit('No image files found of form ' + imloc +tcstr+'??????_' + imname)
-    im = [Plot(j) for i,j in enumerate(imarr) if outdata[i]['OBJID'] == 0]
-    for k in range(len(im)):
-        im[k].doCC(im[k].image,im[k].eclip,0)
-        print 'Image ', k+1, ' / ', len(im)
+    max_k = len(imarr)
+    for k in range(max_k):
+        j = imarr[k]
+        if outdata[k]['OBJID'] != 0:
+            continue #Already been worked
+        im = Plot(j)
+        im.doCC(im.image,im.eclip,0)
+        print 'Image {0} / {1}'.format(k+1,max_k)
         print imarr[k]
-        im[k].createPlot()
+        im.createPlot()
+    #im = [Plot(j) for i,j in enumerate(imarr) if outdata[i]['OBJID'] == 0]
+    #for k in range(len(im)):
+    #    im[k].doCC(im[k].image,im[k].eclip,0)
+    #    print 'Image ', k+1, ' / ', len(im)
+    #    print imarr[k]
+    #    im[k].createPlot()
     
  
 
