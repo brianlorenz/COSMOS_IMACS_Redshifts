@@ -1119,7 +1119,7 @@ class CCcalc:
                     self.ccmax = 1
                     self.dzhi = 1
                     self.dzlo = 1
-                    print "Error, less than 2 roots"
+                    print "Error, fewer than 2 roots"
 
                 #Here we compute chi2 and reduce chi2
                 Tzs = T.Redshift(zsmax,G.wavelength/(1+z))
