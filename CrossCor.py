@@ -1,6 +1,7 @@
 import numpy as np
 import glob
 import sys
+import getopt
 import os
 from astropy.io import fits
 from scipy.interpolate import interp1d,splrep,splev,sproot
@@ -21,6 +22,7 @@ imagename - string -  set to be your big.fits file, including the path.
 objid - optional string -  set to the 6-letter object id of a single object to open only that one
 usure - optional string -  set to the string 'unsure' to open only those objects which the user flagged as unsure
 inter - optional string -  set to the string 'inter' to run interactively; this is automatically on if looking at 1 objid
+emiss - optional string -  set to the string 'emiss' to run through a list of emission-line only galaxies
 
 Change to your dataset:
 wave1,wave2 - (int,int) - the wavelength range over which to correlate the data, can be changed by the user in the GUI
@@ -44,9 +46,11 @@ NOTE: The outfile must correspond to the image that it was generated from.
       The file is generated once with all objects in the mask if it does not exist, and then is modified from there.
 '''
 
+
 wave1,wave2 = (3900,8200)
 zrange = (0.01,0.4)
 emclip = True
+markbads = False #Read in a separate file and auto-mark bads
 specplot = 0
 
 outloc = 0
@@ -57,17 +61,32 @@ interactive = 0
 objid = 0
 tcorr = 1 
 
-imagename = sys.argv[1]
+fullCmdArguments = sys.argv
+argumentList = fullCmdArguments[2:]
+imagename = fullCmdArguments[1]
+unixOptions = "o:iueb:"  
+gnuOptions = ["objid=", "inter", "unsure","emiss","bads="]  
 
+try:  
+    arguments, values = getopt.getopt(argumentList, unixOptions, gnuOptions)
+except getopt.error as err:  
+    # output error, and return with an error code
+    print (str(err))
+    sys.exit(2)
 
-if len(sys.argv) == 3:
-    if sys.argv[2] == 'unsure':
+for currentArgument, currentValue in arguments:
+    if currentArgument in ("-i", "--inter"):
+        interactive = 1
+    elif currentArgument in ("-u", "--unsure"):
         readunsure = 1
-    if sys.argv[2] == 'inter':
+    elif currentArgument in ("-o", "--objid"):
+        objid = currentValue
         interactive = 1
-    else:
-        objid = sys.argv[2]
-        interactive = 1
+    elif currentArgument in ("-e", "--emiss"):
+        emclip = False
+    elif currentArgument in ("-b", "--bads"):
+        badfile = currentValue
+        markbads = True
 
 imname = imagename
 while imname.find('/') != -1:
@@ -285,7 +304,9 @@ class Template(Spectrum):
         self.verb = 0
         self.GetBadPixels()
         wu,su = np.compress(self.good,[self.wavelength,self.spec],1)
-        self.interp = interp1d(wu,su,fill_value=0,bounds_error=0)
+        self.tck = splrep(wu,su,s=0,k=3)
+        self.interp = lambda w: splev(w,self.tck)*np.greater_equal(w,wu.min())*np.less_equal(w,wu.max())
+        #self.interp = interp1d(wu,su,fill_value=0,bounds_error=0)
     def Redshift(self,z,w):
         return self.interp(w)/(1.0+z)
         
@@ -353,9 +374,35 @@ class Plot():
             return
             
         maxarr = np.asarray((self.t23.ccmax,self.t24.ccmax,self.t25.ccmax,self.t26.ccmax,self.t27.ccmax))
+        chisqarr = np.asarray((self.t23.rchi2,self.t24.rchi2,self.t25.rchi2,self.t26.rchi2,self.t27.rchi2))
         maxindex = np.argmax(maxarr)
-        self.tempid = maxindex + 23
-
+        minindex = np.argmin(chisqarr)
+        #If best chisq and cc_max at same point, it's easy
+        if maxindex == minindex:
+            self.tempid = maxindex + 23
+        else: #It just couldn't be easy, could it?
+            bestzs = np.asarray((self.t23.zsmax,self.t24.zsmax,self.t25.zsmax,self.t26.zsmax,self.t27.zsmax))
+            z_o_a = 0.85 * (self.zbound[1] - self.zbound[0]) + self.zbound[0]
+            zneighbors = [len(np.where(bestzs - bestzs[ii] <= 0.015)[0]) for ii in range(5)]
+            #First: is one best guess at the upper-z bounds? It's probably worse
+            if bestzs[maxindex] >= z_o_a and bestzs[minindex] < z_o_a:
+                self.tempid = minindex + 23
+            elif bestzs[maxindex] < z_o_a and bestzs[minindex] >= z_o_a:
+                self.tempid = maxindex + 23
+            #Second: is one a 3+ hit mode? Go with that.
+            elif zneighbors[maxindex] >= 3:
+                self.tempid = maxindex + 23
+            elif zneighbors[minindex] >= 3:
+                self.tempid = minindex + 23
+            #Third: Is one a 2-hit mode and the other isn't? Try that
+            elif zneighbors[maxindex] >= 2 and zneighbors[minindex] == 1:
+                self.tempid = maxindex + 23
+            elif zneighbors[minindex] >= 2 and zneighbors[maxindex] == 1:
+                self.tempid = minindex + 23
+            #Fourth: Okay, this is probably not too hot. Just go with the rchisq
+            else:
+                self.tempid = minindex + 23
+            
         self.findTemp()
 
     def findTemp(self):
@@ -480,16 +527,26 @@ class Plot():
             self.ax2b.set_xlabel('$\lambda$')
             
             self.ax2c.set_xlabel('$\lambda$')
-            self.m1, = self.ax3.plot(self.temp.zs[0],self.temp.cc[0],color='indianred')
+            self.m1, = self.ax3.plot(self.temp.zs[0],self.temp.cc[0],color='indianred',zorder=1)
+            self.m1_23, = self.ax3.plot(self.t23.zs[0],self.t23.cc[0]*(max(self.temp.cc[0])/max(self.t23.cc[0])),
+                                        color='#ff9933',alpha=0.25,zorder=0)
+            self.m1_24, = self.ax3.plot(self.t24.zs[0],self.t24.cc[0]*(max(self.temp.cc[0])/max(self.t24.cc[0])),
+                                        color='Yellow',alpha=0.25,zorder=0)
+            self.m1_25, = self.ax3.plot(self.t25.zs[0],self.t25.cc[0]*(max(self.temp.cc[0])/max(self.t25.cc[0])),
+                                        color='#33cc33',alpha=0.25,zorder=0)
+            self.m1_26, = self.ax3.plot(self.t26.zs[0],self.t26.cc[0]*(max(self.temp.cc[0])/max(self.t26.cc[0])),
+                                        color='#0066cc',alpha=0.25,zorder=0)
+            self.m1_27, = self.ax3.plot(self.t27.zs[0],self.t27.cc[0]*(max(self.temp.cc[0])/max(self.t27.cc[0])),
+                                        color='#9933ff',alpha=0.25,zorder=0)
             if self.temp.zp>0: self.m2, = self.ax3.plot(self.temp.zs[1],self.temp.cc[1],color='firebrick')
-            else: self.m2, = self.ax3.plot((0,0),(0,0),color='firebrick')
+            else: self.m2, = self.ax3.plot((0,0),(0,0),color='firebrick',zorder=2)
             if self.temp.zp>1: self.m3, = self.ax3.plot(self.temp.zs[2],self.temp.cc[2],color='darkred')
-            else: self.m3, = self.ax3.plot((0,0),(0,0),color='darkred')
+            else: self.m3, = self.ax3.plot((0,0),(0,0),color='darkred',zorder=2)
             if self.temp.zp>2: self.m4, = self.ax3.plot(self.temp.zs[3],self.temp.cc[3],color='darkred')
-            else: self.m4, = self.ax3.plot((0,0),(0,0),color='darkred')
+            else: self.m4, = self.ax3.plot((0,0),(0,0),color='darkred',zorder=2)
             self.g1, = self.ax3.plot((self.temp.zs[self.temp.zp][self.temp.zmax],
                                       self.temp.zs[self.temp.zp][self.temp.zmax]),
-                                     (-10000,10000),color='mediumseagreen')
+                                     (-10000,10000),color='mediumseagreen',zorder=1)
             self.ax3.set_xlim(self.zbound[0],self.zbound[1])
             self.ax3.set_ylim(min(self.temp.cc[0])*0.95,max(self.temp.cc[0]*1.05))
             self.ax3.set_xlabel('z')
@@ -716,8 +773,14 @@ class Plot():
             if self.mkspec: plt.close(self.fig2)
 
         def checkStarFlag():
-            if self.star == 1: bsflag.label.set_text('Unmark Star')
-            else: bsflag.label.set_text('Mark Star')
+            if self.star == 1: 
+                bsflag.label.set_text('Unmark Star')
+                bsflag.color = 'IndianRed'
+                bsflag.hovercolor='Red'
+            else: 
+                bsflag.label.set_text('Mark Star')
+                bsflag.color = '0.85'
+                bsflag.hovercolor='0.95'
             plt.draw()
 
         def starFlag(event):
@@ -735,12 +798,17 @@ class Plot():
             if self.baddata == 1:
                 self.baddata = 0
                 bdflag.label.set_text('Mark Bad')
+                bdflag.color = '0.85'
+                bdflag.hovercolor='0.95'
             else:
                 self.baddata = 1
                 bdflag.label.set_text('Unmark Bad')
+                bdflag.color = 'IndianRed'
+                bdflag.hovercolor='Red'
             plt.draw()
         dflag = plt.axes([0.25, 0.0, 0.08, 0.05])
-        bdflag = Button(dflag, 'Mark Bad')
+        if self.baddata == 0: bdflag = Button(dflag, 'Mark Bad')
+        else: bdflag = Button(dflag, 'Unmark Bad')
         bdflag.on_clicked(dataFlag)
         
 
@@ -817,8 +885,12 @@ class Plot():
         bchangez.on_clicked(changeZ)
 
         def checkSpecFlag():
-            if self.star == 1: bsflag.label.set_text('Unmark Star')
-            else: bsflag.label.set_text('Mark Star')
+            if self.star == 1: 
+                bsflag.label.set_text('Unmark Star')
+                bsflag.color = 'Red'
+            else: 
+                bsflag.label.set_text('Mark Star')
+                bsflag.color = 0.85
             plt.draw()
         
         def mkSpec(event):
@@ -859,6 +931,11 @@ class Plot():
         self.k2c.set_ydata(self.temp.Trs[self.temp.zp][self.temp.zmax])
         self.m1.set_ydata(self.temp.cc[0])
         self.m1.set_xdata(self.temp.zs[0])
+        self.m1_23.set_ydata(self.t23.cc[0]*(max(self.temp.cc[0])/max(self.t23.cc[0])))
+        self.m1_24.set_ydata(self.t24.cc[0]*(max(self.temp.cc[0])/max(self.t24.cc[0])))
+        self.m1_25.set_ydata(self.t25.cc[0]*(max(self.temp.cc[0])/max(self.t25.cc[0])))
+        self.m1_26.set_ydata(self.t26.cc[0]*(max(self.temp.cc[0])/max(self.t26.cc[0])))
+        self.m1_27.set_ydata(self.t27.cc[0]*(max(self.temp.cc[0])/max(self.t27.cc[0])))
         if self.temp.zp>0:
             self.m2.set_ydata(self.temp.cc[1])
             self.m2.set_xdata(self.temp.zs[1])
@@ -1011,8 +1088,19 @@ class CCcalc:
         '''
         Main iterative calculations are done here
         '''
+
+        dGw = G.wavelength[1:]-G.wavelength[:-1]
+        dGw = np.compress(np.greater(G.wavelength[1:],w1)*np.greater(G.wavelength[:-1],w2),dGw)
+        Gw = np.compress(np.greater(G.wavelength[1:],w1)*np.greater(G.wavelength[:-1],w2),(G.wavelength[1:]+G.wavelength[:-1])/2.)
+        dzfloor = dGw.mean()/Gw.mean()
+
         while keepgoing:
-            zs = np.arange(z1,z2+dz/2,dz,dtype='float64')
+            if intro:
+                print z1,z2,dzfloor,dz
+                zs = np.arange(z1,z2+dz/2,dz,dtype='float64')
+            else:
+                print zsmax,z1,z2,dzfloor,dz
+                zs = np.sort(np.concatenate([np.arange(zsmax,z2+dz/2,dz,dtype='float64'), np.arange(zsmax-dz,z1-dz/2,-dz,dtype='float64')]))
             self.zs.append(zs)
                 
             if verb: print "Using order=",o
@@ -1067,18 +1155,28 @@ class CCcalc:
                 if dz1 < 0.5 and dz2 < 0.5: keepgoing = False
     
                 if intro:
-                    dz = 0.3/99.0
+#                    dz = 0.3/99.0
                     intro = 0
                     
                 if keepgoing:
-                    if self.range == 100:
-                        z1,z2 = zs[zmax]-5*dz,zs[zmax]+4.9*dz
-                    elif self.range == 60:
-                        z1,z2 = zs[zmax]-3*dz,zs[zmax]+2.9*dz
-                    elif self.range == 20:
-                        z1,z2 = zs[zmax]-1*dz,zs[zmax]+0.9*dz
+                    cctck = splrep(zs,cc,s=0,k=3)
+                    zsmax = fsolve(lambda z: splev(z,cctck,1),(zs[zmax],))[0]
+
                     dz = dz/10.0
-                    zp += 1
+                    dz = max([dz,dzfloor])
+                    z1,z2 = zs[zmax]-10*dz,zs[zmax]+9.9*dz
+#                    if self.range == 100:
+#                        z1,z2 = zs[zmax]-5*dz,zs[zmax]+4.9*dz
+#                    elif self.range == 60:
+#                        z1,z2 = zs[zmax]-3*dz,zs[zmax]+2.9*dz
+#                    elif self.range == 20:
+#                        z1,z2 = zs[zmax]-1*dz,zs[zmax]+0.9*dz
+#                    dz = dz/2.5
+#                    dz = max([dz,dzfloor])
+                    if zp < 10: zp += 1
+                    else: keepgoing = False
+
+#                    zp += 1
                         
         if not self.failure:
                 '''
@@ -1100,13 +1198,19 @@ class CCcalc:
                 cc2tck = splrep(zs,cc-(ccmax-0.5),s=0,k=3)
                 try: 
                     ccroots = sproot(cc2tck,mest=2*len(cc))
+                    if len(ccroots)<2:
+                        shrnk_zs = zs[zmax - 10: zmax + 10]
+                        shrnk_cc = cc[zmax - 10: zmax + 10] - ccmax
+                        shrnk_cc2tck = splrep(shrnk_zs,shrnk_cc, s=0, k=3)
+                        ccroots = sproot(shrnk_cc2tck,mest=2*len(shrnk_cc))
                 except(TypeError):
                     ccroots = [0]
+                    
                 self.zp = zp
                 #Here we estimate our uncertainly in z
                 if len(ccroots)>=2:
                     zlo,zhi = np.sort(np.take(ccroots,np.argsort(abs(ccroots-zsmax)))[:2])
-                    dzlo,dzhi = zsmax-zlo,zhi-zsmax
+                    dzlo,dzhi = zsmax-zlo,np.abs(zhi-zsmax)
                     print "         +%.6f" % (dzhi)
                     print "z = %.6f" % (zsmax)
                     print "         -%.6f" % (dzlo)
@@ -1115,11 +1219,24 @@ class CCcalc:
                     self.dzhi = dzhi
                     self.dzlo = dzlo
                 else:
-                    self.zsmax = 1
-                    self.ccmax = 1
-                    self.dzhi = 1
-                    self.dzlo = 1
-                    print "Error, fewer than 2 roots"
+                    zlo = fsolve(lambda z: splev(z,cctck)-(ccmax-0.5),(zs[zmax-3],))[0]
+                    zhi = fsolve(lambda z: splev(z,cctck)-(ccmax-0.5),(zs[zmax+3],))[0]
+                    dzlo = zs[zmax]-zlo
+                    dzhi = zhi-zs[zmax]
+                    print "Fewer than two roots: solved independently"
+                    print "         +%.6f" % (dzhi)
+                    print "z = %.6f" % (zsmax)
+                    print "         -%.6f" % (dzlo)
+                    self.zsmax = zsmax
+                    self.ccmax = ccmax
+                    self.dzhi = dzhi
+                    self.dzlo = dzlo
+
+                    #self.zsmax = 1
+                    #self.ccmax = 1
+                    #self.dzhi = 1
+                    #self.dzlo = 1
+                    #print "Error, fewer than 2 roots"
 
                 #Here we compute chi2 and reduce chi2
                 Tzs = T.Redshift(zsmax,G.wavelength/(1+z))
@@ -1174,6 +1291,7 @@ if objid:
 
 else:
     outdata = np.genfromtxt(outfile,dtype=None,names=True)
+    if markbads: bads = np.loadtxt(badfile,unpack=True)
     if tcorr: tcstr = 'cor_'
     else: tcstr = ''
     imarr = glob.glob(imloc+tcstr+'??????_' + imname)
@@ -1185,6 +1303,10 @@ else:
         if outdata[k]['OBJID'] != 0:
             continue #Already been worked
         im = Plot(j)
+        if markbads:
+            if float(im.image[:6]) in bads:
+                print 'Marked Bad!'
+                im.baddata = 1
         im.doCC(im.image,im.eclip,0)
         print 'Image {0} / {1}'.format(k+1,max_k)
         print imarr[k]
