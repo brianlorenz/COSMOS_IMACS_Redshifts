@@ -199,8 +199,17 @@ class FunPlot:
             else:
                 #self.ax2.set_xlim(self.wavelength[0],self.wavelength[-1])
                 #self.ax2.set_ylim(min(self.dataplot),max(self.dataplot))
-                self.ax3.set_xlim(self.xdata[0]+self.xstart,self.xdata[-1]+self.xstart)
-                self.ax3.set_ylim(min(min(self.ydata),min(self.gausscurve2)),max(max(self.ydata),max(self.gausscurve2))*1.1)
+                try:
+                    self.ax3.set_xlim(self.xdata[0]+self.xstart,self.xdata[-1]+self.xstart)
+                    self.ax3.set_ylim(min(min(self.ydata),min(self.gausscurve2)),max(max(self.ydata),max(self.gausscurve2))*1.1)
+                except IndexError:
+                    print self.xstart
+                    self.ax3.set_xlim(self.xstart,self.xstart + 30)
+                    self.ax3.set_ylim(0,10000)
+                except ValueError:
+                    print self.xstart
+                    self.ax3.set_xlim(self.xstart,self.xstart + 30)
+                    self.ax3.set_ylim(0,10000)
             self.ax.legend([self.l1,self.l2],[('OBJID ' + str(self.objids[self.objnum-1])),"Noise"],bbox_to_anchor=(1.22, 0.22))
             self.ax3.legend(bbox_to_anchor=(1.22, 1.0))
             plt.draw()
@@ -217,7 +226,9 @@ class FunPlot:
             self.getRows()
             self.redo = 0
             self.wavelength = (1.+np.arange(self.hdu.header["naxis1"])-self.hdu.header["crpix1"])*self.hdu.header["cdelt1"] + self.hdu.header["crval1"]
-            self.objids = [self.hdu.header["objid%d"%(j+1)] for j in range(self.nslits)]
+            self.objids = [self.hdu.header["objid%d"%(j+1)]
+                           .replace('ob','').replace('ref','') 
+                           for j in range(self.nslits)]
             self.numrows = int(round(1.4*self.stddev2))
             self.mu2 = int(round(self.mu2))
             self.dataplot = np.add.reduce(self.hdu.data[self.xstart+self.mu2-self.numrows:self.xstart+self.mu2+self.numrows+1])
@@ -447,7 +458,9 @@ class FunPlot:
             leftbound = self.xstart+mu2-numrows
             rightbound = self.xstart+mu2+numrows+1
             wavelength = (1.+np.arange(self.hdu.header["naxis1"])-self.hdu.header["crpix1"])*self.hdu.header["cdelt1"] + self.hdu.header["crval1"]
-            objids = [self.hdu.header["objid%d"%(j+1)] for j in range(self.nslits)]
+            objids = [self.hdu.header["objid%d"%(j+1)]
+                      .replace('ob','').replace('ref','') 
+                      for j in range(self.nslits)]
             #Plot then save the plot
             #fig, axarr = plt.subplots(3,1,figsize=(10,8))
             #ax1 = axarr[0]
@@ -466,7 +479,9 @@ class FunPlot:
             k3, = ax2.plot((leftbound,leftbound),(-1000000,1000000),color='mediumseagreen',label='Plotted Rows')
             k4, = ax2.plot((rightbound-1,rightbound-1),(-1000000,1000000),color='mediumseagreen')
             ax2.set_xlim(xdata2[0],xdata2[-1])
-            ax2.set_ylim(max(min(min(ydata2),min(self.gausscurve2)),-100000),max(max(ydata2),max(self.gausscurve2))*1.1)
+            try:
+                ax2.set_ylim(max(min(min(ydata2),min(self.gausscurve2)),-100000),max(max(ydata2),max(self.gausscurve2))*1.1)
+            except ValueError: ax2.set_ylim(-10000,10000)
             ax1.set_xlabel('$\lambda$')
             ax1.set_ylabel('Counts')
             ax2.set_xlabel('Pixel Index')
@@ -491,6 +506,7 @@ class FunPlot:
             ax4.set_yticks((0,25))
             ax4.set_yticklabels([self.csecta[self.objnum-1],self.csecta[self.objnum-1]+25])
             #plt.tight_layout()
+            print objids[self.objnum-1]
             fig.savefig(outloc + ('%06d' % int(objids[self.objnum-1])) + '_' + self.imname.replace('.fits','.png'))
             #Write the .fits file
             hduarray = np.add.reduce(self.hdu.data[leftbound:rightbound])
@@ -528,6 +544,23 @@ class FunPlot:
             f.close()
             plt.close(fig)
 
+def objid_to_objnum(datafile,objid):
+    '''Take an objid and return the objnum stored in datafile'''
+    try:
+        with open(datafile,'r') as f:
+            for line in f:
+                if line[0] == '#':
+                    continue
+                oid,onum = line.split()[:2]
+                if int(oid) == int(objid):
+                    return int(onum)
+        return KeyError("No such objid in database")
+    except IOError:
+        print "You cannot send a six-digit objid if you don't"
+        print "have a datafile (e.g., out_maskbig.txt) to query"
+        print "for the objnum."
+        return IOError
+
 if __name__ == '__main__':
 
     try: imloc = sys.argv[1]
@@ -538,7 +571,12 @@ if __name__ == '__main__':
     a = FunPlot(imloc)
     
     if len(sys.argv) == 3:
-        a.plotObj(int(sys.argv[2]))
+        if len(sys.argv[2]) == 6:
+            #User typed in 6-digit ID, not slit index
+            objnum =  objid_to_objnum(a.outfile,sys.argv[2])                   
+            a.plotObj(objnum)
+        else:
+            a.plotObj(int(sys.argv[2]))
     elif len(sys.argv) == 2:
         yesno = raw_input('Are you sure you want to overwrite output from ' + sys.argv[1] + '? (y/n) ').lower()
         if yesno == 'y':
