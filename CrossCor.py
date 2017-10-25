@@ -51,11 +51,12 @@ wave1,wave2 = (3900,8200)
 zrange = (0.01,0.4)
 emclip = True
 markbads = False #Read in a separate file and auto-mark bads
+haselist = False #Read in list of objects to assume emission
 specplot = 0
 
 outloc = 0
 outname = 0
-temploc = 0
+temploc = sys.path[0]+'/Templates/'
 readunsure = 0
 interactive = 0
 objid = 0
@@ -64,8 +65,8 @@ tcorr = 1
 fullCmdArguments = sys.argv
 argumentList = fullCmdArguments[2:]
 imagename = fullCmdArguments[1]
-unixOptions = "o:iueb:"  
-gnuOptions = ["objid=", "inter", "unsure","emiss","bads="]  
+unixOptions = "iueo:b:l:t:"  
+gnuOptions = ["inter", "unsure","emiss","objid=","bads=","elist=","temploc="]  
 
 try:  
     arguments, values = getopt.getopt(argumentList, unixOptions, gnuOptions)
@@ -87,6 +88,11 @@ for currentArgument, currentValue in arguments:
     elif currentArgument in ("-b", "--bads"):
         badfile = currentValue
         markbads = True
+    elif currentArgument in ("-l", "--elist"):
+        emissfile = currentValue
+        haselist = True
+    elif currentArgument in ("-t", "--temploc"):
+        temploc = currentValue
 
 imname = imagename
 while imname.find('/') != -1:
@@ -529,15 +535,15 @@ class Plot():
             self.ax2c.set_xlabel('$\lambda$')
             self.m1, = self.ax3.plot(self.temp.zs[0],self.temp.cc[0],color='indianred',zorder=1)
             self.m1_23, = self.ax3.plot(self.t23.zs[0],self.t23.cc[0]*(max(self.temp.cc[0])/max(self.t23.cc[0])),
-                                        color='#ff9933',alpha=0.25,zorder=0)
+                                        color='#ff9933',alpha=0.35,zorder=0)
             self.m1_24, = self.ax3.plot(self.t24.zs[0],self.t24.cc[0]*(max(self.temp.cc[0])/max(self.t24.cc[0])),
-                                        color='Yellow',alpha=0.25,zorder=0)
+                                        color='Yellow',alpha=0.35,zorder=0)
             self.m1_25, = self.ax3.plot(self.t25.zs[0],self.t25.cc[0]*(max(self.temp.cc[0])/max(self.t25.cc[0])),
-                                        color='#33cc33',alpha=0.25,zorder=0)
+                                        color='#33cc33',alpha=0.35,zorder=0)
             self.m1_26, = self.ax3.plot(self.t26.zs[0],self.t26.cc[0]*(max(self.temp.cc[0])/max(self.t26.cc[0])),
-                                        color='#0066cc',alpha=0.25,zorder=0)
+                                        color='#0066cc',alpha=0.35,zorder=0)
             self.m1_27, = self.ax3.plot(self.t27.zs[0],self.t27.cc[0]*(max(self.temp.cc[0])/max(self.t27.cc[0])),
-                                        color='#9933ff',alpha=0.25,zorder=0)
+                                        color='#9933ff',alpha=0.35,zorder=0)
             if self.temp.zp>0: self.m2, = self.ax3.plot(self.temp.zs[1],self.temp.cc[1],color='firebrick')
             else: self.m2, = self.ax3.plot((0,0),(0,0),color='firebrick',zorder=2)
             if self.temp.zp>1: self.m3, = self.ax3.plot(self.temp.zs[2],self.temp.cc[2],color='darkred')
@@ -788,10 +794,13 @@ class Plot():
             else: self.star = 1
             checkStarFlag()
         sflag = plt.axes([0.15, 0.0, 0.08, 0.05])
-        bsflag = Button(sflag, 'Mark Star')
-        bsflag.on_clicked(starFlag)
         if G.spec[1000:1500].mean() > 10000:
             self.star = 1
+            bsflag = Button(sflag, 'Mark Star',color = 'IndianRed',hovercolor = 'Red')
+        else:
+            self.star = 0
+            bsflag = Button(sflag, 'Mark Star',color = '0.85',hovercolor = '0.95')
+        bsflag.on_clicked(starFlag)
         checkStarFlag()
 
         def dataFlag(event):
@@ -807,8 +816,8 @@ class Plot():
                 bdflag.hovercolor='Red'
             plt.draw()
         dflag = plt.axes([0.25, 0.0, 0.08, 0.05])
-        if self.baddata == 0: bdflag = Button(dflag, 'Mark Bad')
-        else: bdflag = Button(dflag, 'Unmark Bad')
+        if self.baddata == 0: bdflag = Button(dflag, 'Mark Bad',color='0.85',hovercolor='0.95')
+        else: bdflag = Button(dflag, 'Unmark Bad',color='IndianRed',hovercolor='Red')
         bdflag.on_clicked(dataFlag)
         
 
@@ -932,10 +941,15 @@ class Plot():
         self.m1.set_ydata(self.temp.cc[0])
         self.m1.set_xdata(self.temp.zs[0])
         self.m1_23.set_ydata(self.t23.cc[0]*(max(self.temp.cc[0])/max(self.t23.cc[0])))
+        self.m1_23.set_xdata(self.t23.zs[0])
         self.m1_24.set_ydata(self.t24.cc[0]*(max(self.temp.cc[0])/max(self.t24.cc[0])))
+        self.m1_24.set_xdata(self.t24.zs[0])
         self.m1_25.set_ydata(self.t25.cc[0]*(max(self.temp.cc[0])/max(self.t25.cc[0])))
+        self.m1_25.set_xdata(self.t25.zs[0])
         self.m1_26.set_ydata(self.t26.cc[0]*(max(self.temp.cc[0])/max(self.t26.cc[0])))
+        self.m1_26.set_xdata(self.t26.zs[0])
         self.m1_27.set_ydata(self.t27.cc[0]*(max(self.temp.cc[0])/max(self.t27.cc[0])))
+        self.m1_27.set_xdata(self.t27.zs[0])
         if self.temp.zp>0:
             self.m2.set_ydata(self.temp.cc[1])
             self.m2.set_xdata(self.temp.zs[1])
@@ -1096,10 +1110,10 @@ class CCcalc:
 
         while keepgoing:
             if intro:
-                print z1,z2,dzfloor,dz
+                #print z1,z2,dzfloor,dz
                 zs = np.arange(z1,z2+dz/2,dz,dtype='float64')
             else:
-                print zsmax,z1,z2,dzfloor,dz
+                #print zsmax,z1,z2,dzfloor,dz
                 zs = np.sort(np.concatenate([np.arange(zsmax,z2+dz/2,dz,dtype='float64'), np.arange(zsmax-dz,z1-dz/2,-dz,dtype='float64')]))
             self.zs.append(zs)
                 
@@ -1260,6 +1274,8 @@ createPlot() - opens the GUI, which allows the user to modify and save the resul
 '''
 if tcorr: tcstr = 'cor_'
 else: tcstr = ''
+if markbads: bads = np.loadtxt(badfile,unpack=True)
+if haselist: emitters = np.loadtxt(emissfile,unpack=True)
 
 if readunsure == 1:
     data = np.genfromtxt(outfile,dtype=None,names=True)
@@ -1272,51 +1288,39 @@ if readunsure == 1:
     tarr = [i for i in reversed(dataunsure[np.argsort(dataunsure['SN'])])]
     imarr = []
     for i in range(len(tarr)):
-        imarr.append(tarr[i]['ImageName'])
-    im = [Plot(imloc+i) for i in imarr]
-    for k in range(len(im)):
-        im[k].doCC(im[k].image,im[k].eclip,0)
-        print 'Image ', k+1, ' / ', len(im)
-        print imarr[k]
-        im[k].createPlot()
-    sys.exit('Finished unsure objects')
-
-if objid:
-    objectimage = glob.glob(imloc + tcstr + objid + '_' + imname)
-    if not objectimage:
+        imarr.append(imloc+tarr[i]['ImageName'])
+    rerun = True
+elif objid:
+    imarr = glob.glob(imloc + tcstr + objid + '_' + imname)
+    if not imarr:
         sys.exit('Cannot find ' + imloc + tcstr + objid + '_' + imname)
-    im = Plot(objectimage[0])
-    im.doCC(im.image,im.eclip,0)
-    im.createPlot()
-
+    rerun = True
 else:
+    rerun = False
     outdata = np.genfromtxt(outfile,dtype=None,names=True)
-    if markbads: bads = np.loadtxt(badfile,unpack=True)
-    if tcorr: tcstr = 'cor_'
-    else: tcstr = ''
     imarr = glob.glob(imloc+tcstr+'??????_' + imname)
     if not imarr:
         sys.exit('No image files found of form ' + imloc +tcstr+'??????_' + imname)
-    max_k = len(imarr)
-    for k in range(max_k):
-        j = imarr[k]
+
+max_k = len(imarr)
+for k in range(max_k):
+    j = imarr[k]
+    if not rerun:
         if outdata[k]['OBJID'] != 0:
             continue #Already been worked
-        im = Plot(j)
-        if markbads:
-            if float(im.image[:6]) in bads:
-                print 'Marked Bad!'
-                im.baddata = 1
-        im.doCC(im.image,im.eclip,0)
-        print 'Image {0} / {1}'.format(k+1,max_k)
-        print imarr[k]
-        im.createPlot()
-    #im = [Plot(j) for i,j in enumerate(imarr) if outdata[i]['OBJID'] == 0]
-    #for k in range(len(im)):
-    #    im[k].doCC(im[k].image,im[k].eclip,0)
-    #    print 'Image ', k+1, ' / ', len(im)
-    #    print imarr[k]
-    #    im[k].createPlot()
+    im = Plot(j)
+    if markbads:
+        if float(im.image[:6]) in bads:
+            print 'Marked Bad!'
+            im.baddata = 1
+    if haselist:
+        if float(im.image[:6]) in emitters:
+            print 'Assuming Emission'
+            im.eclip = False
+    im.doCC(im.image,im.eclip,0)
+    print 'Image {0} / {1}'.format(k+1,max_k)
+    print imarr[k]
+    im.createPlot()
     
  
 
