@@ -230,7 +230,8 @@ class Plot():
             dataout = dataout.reshape(4,len(self.wavelength))      
             hdu = fits.PrimaryHDU(header = headerout, data = dataout)
             filelocation = outloc + 'tc_' + imname
-            hdu.writeto(filelocation,overwrite=True)
+            try: hdu.writeto(filelocation,overwrite=True)
+            except TypeError: hdu.writeto(filelocation,clobber=True)
             filelocation2 = outloc + 'tc_' + imname.replace('.fits','.png')
             self.fig.savefig(filelocation2)
             print('Correction saved to ' + filelocation)
