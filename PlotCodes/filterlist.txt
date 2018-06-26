@@ -1,0 +1,27 @@
+#Filter list is found at:
+#https://www.strw.leidenuniv.nl/galaxyevolution/ULTRAVISTA/README_UVISTA_v4.1.txt
+#Wavelenghts for the filters found at: http://cosmos.astro.caltech.edu/page/filterset
+FilterName	Wavelength
+u		3823.29
+IB427		4263.45
+B		4458.32
+IB464		4635.13
+g		4816.12
+IA484		4849.20
+IB505		5062.51
+IA527		5261.13
+V		5477.83
+IB574		5764.76
+IA624		6233.09
+r		6234.11
+IA679		6781.13 
+IB709		7073.63    
+IA738    	7361.56    
+IA767    	7684.89  
+i		7740.58
+IB827    	8244.53
+z		9125.20
+Y		10214.19
+J    		12534.65
+H    		16453.41
+Ks    		21539.88
