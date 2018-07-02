@@ -106,6 +106,20 @@ if not outname: outname = 'cc_' + imname.replace('.fits','')
 outfile = outloc + outname + '.txt'
 outfilev = outloc + 'verb_' + outname + '.txt'
 
+outfile = outloc + outname + '.txt'
+#Trying to fix chanigng to a new computer, set to the mask you are doing
+#outfilev = outfile.replace('cc_feb16_abig','verb_a6')
+#outfilev = outfile.replace('cc_feb16_bbig','verb_b6')
+#outfilev = outfile.replace('cc_feb17_bbig','verb_b7')
+#outfilev = outfile.replace('cc_feb16_dbig','verb_d6')
+#outfilev = outfile.replace('cc_feb16_ebig','verb_e6')
+#outfilev = outfile.replace('cc_feb17_ebig','verb_e7')
+#outfilev = outfile.replace('cc_feb16_fbig','verb_f6')
+#outfilev = outfile.replace('cc_feb16_gbig','verb_g6')
+#outfilev = outfile.replace('cc_feb16_hbig','verb_h6')
+#outfilev = outfile.replace('cc_feb16_ibig','verb_i6')
+outfilev = outfile.replace('cc_feb17_jbig','verb_j7')
+
 #Check if telluric correction is done
 if not glob.glob(imloc+'cor_??????_'+imname):
     tcorr = 0
