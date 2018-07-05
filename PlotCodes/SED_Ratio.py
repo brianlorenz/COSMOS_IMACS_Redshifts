@@ -276,7 +276,7 @@ if 1 == 1:
         ax0.plot(wavelength,spec, color='cornflowerblue', label = 'Orginial Spectrum')
         #ax0.plot(wavelength,noise, color='noise', label = 'Noise')
         ax1.plot(wavelength,normdeblaze84, color='lightgray', label = '+$\sigma$')
-        ax1.plot(wavelength,normdeblaze16, color='gray', label = '-$\sigma$')
+        Briax1.plot(wavelength,normdeblaze16, color='gray', label = '-$\sigma$')
         ax1.plot(wavelength,normdeblaze50, color='Black', label = 'Median')
         ax1.plot(wavelength,polygraph, color='C1', label = 'Polynomial Fit') #, order ' + str(order))
         ax1.plot([9200,9200],[-1000,1000],color='C1',ls='-')
