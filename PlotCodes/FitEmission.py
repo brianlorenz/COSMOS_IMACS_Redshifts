@@ -13,6 +13,9 @@ from scipy.interpolate import splrep, splev
 from scipy.signal import medfilt
 from scipy.optimize import curve_fit,nnls
 
+#Location of output data file
+dataout = '/Users/blorenz/COSMOS/COSMOSData/lineflux.txt'
+
 #Folder to save the figures
 figout = '/Users/blorenz/COSMOS/COSMOSData/fitEmissionOut/'
 
@@ -25,6 +28,13 @@ linedata = '/Users/blorenz/COSMOS/COSMOSData/corFitsFileOut/galaxylines.dat'
 
 #Read in the spectral lines for masking
 gallines = ascii.read(linedata).to_pandas()
+
+#Make a file if there isn't one already
+if not os.path.exists(dataout):
+    f = open(dataout,'w+')
+    
+    
+
 
 #Division function
 def divz(X,Y):
@@ -63,7 +73,7 @@ objs = [(i[4:10],i[17],i[15]) for i in ourdata.ImageName]
 
 
 #Loop the fitting over all objects
-for i in range(0,10):
+for i in range(19,20):
 #for i in range(len(objs)):
     zcc = ourdata.iloc[i].z_cc
     #Set the location of the data file
@@ -74,7 +84,7 @@ for i in range(0,10):
             flxhead = fits.open(flxfits)[0].header
             #Read in the spectrum and model
             spec = flxdata[0]
-            noise = flxdata[2] #?
+            noise = flxdata[1] #?
             model = flxdata[3]
             #Calculate the wavelength range for the data
             crval1 = flxhead["crval1"]
@@ -105,69 +115,10 @@ for i in range(0,10):
                 modelline = model[idx]
                 noiseline = noise[idx]
 
-                #Set up Gaussian Function
-                #mu - mean value of the gaussian
-                #sigma - standard deviation
-                #Model continuum
-                m = modelline
-                #Get the weights so we can downweight by noise
-                w = divz(1,noiseline)
-                
-                def gauss3(x, mu, sigma):
-                    A,B = amp3(x,mu,sigma)
-                    g = np.exp(-0.5*(x-mu)**2/sigma**2)/np.sqrt(2*np.pi*sigma**2) #NORMALIZED GAUSSIAN
-                    s = A*g + B*m
-                    print A,B
-                    return s
-
-                #A is ?, B is the scale factor of the continuum
-                def amp3(x, mu, sigma):
-                    g = np.exp(-0.5*(x-mu)**2/sigma**2)/np.sqrt(2*np.pi*sigma**2) #NORMALIZED GAUSSIAN
-                    A,B = nnls(np.transpose([g,m])*w[::,np.newaxis],specline*w)[0]
-                    return A,B
-
-               
-
-                #Definte the amplitude function (we need specline for this)
-                #def amp2(x, mu, sigma, y0, y1):
-                #    g = np.exp(-(x-mu)**2/(2.*sigma**2))
-                #    t = np.add.reduce((specline-y0-y1*x)*g)
-                #    b = np.add.reduce(g*g)
-                #    if b: A = t/b
-                #    else: A = 0
-                #    return A
-                
-                def gauss2(x, mu, sigma, scale):    #
-                    g = amp2(x,mu,sigma,scale)*np.exp(-(x-mu)**2/(2.*sigma**2))+scale+modelline
-                    return g
-
-                def amp2(x, mu, sigma, scale):     #
-                    g = np.exp(-(x-mu)**2/(2.*sigma**2))
-                    t = np.add.reduce((specline-modelline-scale)*g)
-                    b = np.add.reduce(g*g)
-                    if b: A = t/b
-                    else: A = 0
-                    return A
-                
-                ###Set initial guess parameters
-                #find the highest peak, get the wavelength value of it
-                guessmu = waveline[np.argmax(shspecline)+srange/2-shrange/2]
-                #guess = (guessmu,2,np.median(spec),0)
-                #guesscurve = gauss2(waveline,guess[0],guess[1],guess[2],guess[3])
-                #guess = (guessmu,2,0)   #
-                #guesscurve = gauss2(waveline,guess[0],guess[1],guess[2])   #
-                guess3 = (guessmu,2)   #
-                guesscurve3 = gauss3(waveline,guess3[0],guess3[1])   #
-                #Set the bounds
-                #bounds = ([guessmu-10,1,0,-1],[guessmu+10,10,5,1])
-                #bounds = ([guessmu-10,1,-1],[guessmu+10,7,1])   #
-                bounds3 = ([guessmu-10,1],[guessmu+10,7])
-
-
                 #Mask out the spectral lines with this function
                 #data - the data to mask out
                 #line - the line to keep (others are masked)
-                def droplines(wavedrop=waveline,specdrop=specline,zline=zline):
+                def droplines(wavedrop=waveline,specdrop=specline,modeldrop=modelline,noisedrop = noiseline,zline=zline):
                     #We first find the line that you are fitting so we don't mask it
                     #Compute the differenc between the current line and every line in the data
                     linediff = zgallines - zline
@@ -180,42 +131,74 @@ for i in range(0,10):
                     #Make them even if they are odd to match up with wavelengths
                     centers = [int(i)+(int(i)&1) for i in rounded]
                     #Arrays for the pixels on either side of each center
-                    centerrange = [np.arange(i-shrange+2,i+shrange,2) for i in centers]
+                    centerrange = [np.arange(i-shrange,i+shrange+2,2) for i in centers]
                     #Find the indices where the arrays match (we will drop these)
                     dropidx = [np.nonzero(np.in1d(wavedrop,i))[0] for i in centerrange]
                     #Drop the values at those indices from both wavelength and spectrum
                     newwave = np.delete(wavedrop,dropidx)
                     newspec = np.delete(specdrop,dropidx)
-                    return newwave,newspec
+                    newmodel = np.delete(modeldrop,dropidx)
+                    newnoise = np.delete(noisedrop,dropidx)
+                    return newwave,newspec,newmodel,newnoise,dropidx
+
 
                 #Redshift the lines to the current galaxy
                 zgallines = gallines.col1*(1+zcc)
-                dropwaveline,dropspecline = droplines()
-                    
+                dropwaveline,dropspecline,dropmodelline,dropnoiseline,dropidx = droplines()
+
+                #Model continuum
+                m = dropmodelline
+                #Get the weights so we can downweight by noise
+                w = divz(1,dropnoiseline)
+
+                #Set up Gaussian Function
+                #mu - mean value of the gaussian
+                #sigma - standard deviation
+                def gauss3(x, mu, sigma):
+                    A,B = amp3(x,mu,sigma)
+                    g = np.exp(-0.5*(x-mu)**2/sigma**2)/np.sqrt(2*np.pi*sigma**2) #NORMALIZED GAUSSIAN
+                    s = A*g + B*m
+                    print A,B
+                    return s
+
+                #A is area under Gauss curve, B is the scale factor of the continuum
+                def amp3(x, mu, sigma):
+                    g = np.exp(-0.5*(x-mu)**2/sigma**2)/np.sqrt(2*np.pi*sigma**2) #NORMALIZED GAUSSIAN
+                    A,B = nnls(np.transpose([g,m])*w[::,np.newaxis],dropspecline*w)[0]
+                    return A,B
+
+                ###Set initial guess parameters
+                #find the highest peak, get the wavelength value of it
+                guessmu = waveline[np.argmax(shspecline)+srange/2-shrange/2]
+                guess3 = (guessmu,2)   
+                guesscurve3 = gauss3(dropwaveline,guess3[0],guess3[1])   
+                #Set the bounds
+                bounds3 = ([guessmu-10,1],[guessmu+10,7])
 
                 
                 #Check if there is a lot of bad data
                 if np.count_nonzero(~np.isnan(specline)):
                     try:
                         #Fit the Gaussian
-                        #coeff2, var_matrix2 = curve_fit(gauss2, waveline, specline, p0=guess, bounds=bounds)
                         #coeff3, var_matrix3 = curve_fit(gauss3, waveline, specline, p0=guess3, bounds=bounds3)
                         coeff3, var_matrix3 = curve_fit(gauss3, dropwaveline, dropspecline, p0=guess3, bounds=bounds3)
                         #Compute the values of the fit
-                        #gausscurve2 = gauss2(waveline,coeff2[0],coeff2[1],coeff2[2],coeff2[3])
-                        #amp2 = amp2(waveline,coeff2[0],coeff2[1],coeff2[2],coeff2[3])
-                        #gausscurve2 = gauss2(waveline,coeff2[0],coeff2[1],coeff2[2])   #
-                        #amp2 = amp2(waveline,coeff2[0],coeff2[1],coeff2[2])   #
-                        gausscurve3 = gauss3(waveline,coeff3[0],coeff3[1])   #
-                        amp3 = amp3(waveline,coeff3[0],coeff3[1])   #
-                        #mu2 = coeff2[0]
+                        gausscurve3 = gauss3(dropwaveline,coeff3[0],coeff3[1])   #
+                        amp3 = amp3(dropwaveline,coeff3[0],coeff3[1])   #
                         mu3 = coeff3[0] 
-                        #stddev2 = np.abs(coeff2[1])
                         stddev3 = np.abs(coeff3[1])
-                        #y0 = coeff2[2]
-                        #y1 = coeff2[3]
-                        #scale2 = coeff2[2]   #
-                        #scale2fac = np.median(divz(modelline+scale2,modelline))
+                        
+                        #Compute chi^2 statistics in the range of the line
+                        #Degrees of freedom: mu, sigma, area, scale
+                        dof = 4
+                        #Set the lower and upper bounds for the region to find chi2
+                        chilb = mu3-3*stddev3
+                        chiub = mu3+3*stddev3
+                        #Get only the indices in that region
+                        cidx = np.logical_and(dropwaveline > chilb, dropwaveline < chiub)
+                        arrchi2 = divz((dropspecline[cidx]-gausscurve3[cidx]),dropnoiseline[cidx])**2
+                        chi2 = np.add.reduce(arrchi2)
+                        rchi2 = divz(chi2,len(dropwaveline[cidx])-dof)
                         print objs[i], coeff3
 
 
@@ -224,25 +207,36 @@ for i in range(0,10):
                             fig,ax0 = plt.subplots(figsize = (13,7))
                             #Plotting
                             ax0.plot(waveline,specline,color='cornflowerblue',label='Spectrum')
+                            #ax0.plot(dropwaveline,dropspecline,color='darkblue',label='Masked Spectrum')
+                            #plt.axvspan(8920,8940, color='grey', alpha=0.5)
+                            [ax0.axvspan(np.min(waveline[j]),np.max(waveline[j]), color='indianred', alpha=0.1) for j in dropidx]
                             ax0.plot(waveline,modelline,color='red',label='Model')
-                            ax0.plot(waveline,guesscurve3,color='orange',label='Initial Guess')
+                            #ax0.plot(dropwaveline,guesscurve3,color='orange',label='Initial Guess')
+                            ax0.plot(dropwaveline,dropnoiseline,color='orange',label='Noise')
                             #Titles, axes, legends
-                            ax0.legend(fontsize = legendfont,loc=1)
                             ax0.set_title('Fit for line at rest $\lambda$ of ' + str(line) + ', OBJID ' + objs[i][0] + '_' + objs[i][1] + objs[i][2] ,fontsize = titlefont)
+                            ax0.legend(fontsize = legendfont,loc=1)
                             ax0.set_xlabel('Wavelength ($\AA$)',fontsize = axisfont)
                             ax0.set_ylabel('Flux ($10^{-17}$ erg/s/${cm}^2/\AA$)',fontsize = axisfont)
                             ax0.tick_params(labelsize = ticksize)
                             return fig,ax0
+
+                        
                             
 
                         fig,ax0 = mkplot()
-                        fig.text(0.14,0.76,'A:             ' + str(round(amp3[0],3)),fontsize = textfont)
-                        fig.text(0.14,0.8,'Std Dev:   ' + str(round(stddev3,3)),fontsize = textfont)
-                        #fig.text(0.14,0.76,'Continuum: y=' + str(round(y1,3)) + 'x+' + str(round(y0,3)),fontsize = textfont)
-                        #fig.text(0.14,0.76,'Scale: ' + str(round(scale2,3)),fontsize = textfont)      #
-                        fig.text(0.14,0.72,'Scale:       ' + str(round(amp3[1],3)),fontsize = textfont)      #
-                        fig.text(0.14,0.84,'Mean:       ' + str(int(mu3)),fontsize = textfont)      #
-                        ax0.plot(waveline,gausscurve3,color='black',label='Gausiian fit')
+                        fig.text(0.14,0.76,'Flux:         ' + str(round(amp3[0],2)),fontsize = textfont)
+                        fig.text(0.14,0.8,'Std Dev:   ' + str(round(stddev3,2)),fontsize = textfont)
+                        fig.text(0.14,0.72,'Scale:       ' + str(round(amp3[1],2)),fontsize = textfont)      
+                        fig.text(0.14,0.84,'Mean:       ' + str(round(mu3,2)),fontsize = textfont)      
+                        fig.text(0.14,0.68,'Chi2:         ' + str(round(chi2,2)),fontsize = textfont)      
+                        fig.text(0.14,0.64,'rChi2:       ' + str(round(rchi2,2)),fontsize = textfont)
+                        fig.text(0.14,0.60,'Redshift:   ' + str(round(zcc,4)),fontsize = textfont)
+                        #fig.text(0.14,0.60,'Luminosity (erg/s):   ' + str(round(lumin,2)),fontsize = textfont)      
+                        ax0.plot(dropwaveline,gausscurve3,color='black',label='Gausiian fit')
+                        #These lines plot where the chi squared is fitting
+                        #ax0.plot((np.min(dropwaveline[cidx]),np.min(dropwaveline[cidx])),(-.5,.5),color='black',label='Gausiian fit')
+                        #ax0.plot((np.max(dropwaveline[cidx]),np.max(dropwaveline[cidx])),(-.5,.5),color='black',label='Gausiian fit')
                         ax0.legend(fontsize = legendfont,loc=1)
                         plt.show()
                         fig.savefig(figout + objs[i][0] + '_' + objs[i][1] + objs[i][2] + '_' + str(line) + '.png')
