@@ -29,12 +29,11 @@ linedata = '/Users/blorenz/COSMOS/COSMOSData/corFitsFileOut/galaxylines.dat'
 #Read in the spectral lines for masking
 gallines = ascii.read(linedata).to_pandas()
 
-#Make a file if there isn't one already
-if not os.path.exists(dataout):
-    f = open(dataout,'w+')
+#Read the datafile (if there is one), then create a blank one to write to:
+if os.path.exists(dataout):
+    outarr = ascii.read(dataout).to_pandas()
+else: outarr = pd.DataFrame()
     
-    
-
 
 #Division function
 def divz(X,Y):
@@ -61,19 +60,9 @@ ourdata = ourdata[ourdata.Star == 0]
 #objs[2] - number
 objs = [(i[4:10],i[17],i[15]) for i in ourdata.ImageName]
 
-#Set up Gaussian Function
-#mu - mean value of the gaussian
-#sigma - standard deviation
-#y0 - constant of continuum line
-#y1 - slope of continuum line
-#def gauss2(x, mu, sigma, y0, y1):
-#    g = amp2(x,mu,sigma,y0,y1)*np.exp(-(x-mu)**2/(2.*sigma**2))+y0+x*y1
-#    return g
-
-
 
 #Loop the fitting over all objects
-for i in range(19,20):
+for i in range(15,17):
 #for i in range(len(objs)):
     zcc = ourdata.iloc[i].z_cc
     #Set the location of the data file
@@ -124,6 +113,8 @@ for i in range(19,20):
                     linediff = zgallines - zline
                     #Find the index of the closest value to 0. There may be negatives
                     closelineidx = np.abs(linediff).idxmin()
+                    #Save the name of the line for later
+                    linename = gallines.iloc[closelineidx].col3
                     #Drop the closest line fromt he table so that we mask the others
                     otherlines = zgallines.drop(closelineidx)
                     #Find the other lines that are around the current line, as integers
@@ -139,12 +130,12 @@ for i in range(19,20):
                     newspec = np.delete(specdrop,dropidx)
                     newmodel = np.delete(modeldrop,dropidx)
                     newnoise = np.delete(noisedrop,dropidx)
-                    return newwave,newspec,newmodel,newnoise,dropidx
+                    return newwave,newspec,newmodel,newnoise,dropidx,linename
 
 
                 #Redshift the lines to the current galaxy
                 zgallines = gallines.col1*(1+zcc)
-                dropwaveline,dropspecline,dropmodelline,dropnoiseline,dropidx = droplines()
+                dropwaveline,dropspecline,dropmodelline,dropnoiseline,dropidx,linename = droplines()
 
                 #Model continuum
                 m = dropmodelline
@@ -158,7 +149,6 @@ for i in range(19,20):
                     A,B = amp3(x,mu,sigma)
                     g = np.exp(-0.5*(x-mu)**2/sigma**2)/np.sqrt(2*np.pi*sigma**2) #NORMALIZED GAUSSIAN
                     s = A*g + B*m
-                    print A,B
                     return s
 
                 #A is area under Gauss curve, B is the scale factor of the continuum
@@ -187,6 +177,8 @@ for i in range(19,20):
                         amp3 = amp3(dropwaveline,coeff3[0],coeff3[1])   #
                         mu3 = coeff3[0] 
                         stddev3 = np.abs(coeff3[1])
+                        flux3 = amp3[0]
+                        scale3 = amp3[1]
                         
                         #Compute chi^2 statistics in the range of the line
                         #Degrees of freedom: mu, sigma, area, scale
@@ -199,7 +191,6 @@ for i in range(19,20):
                         arrchi2 = divz((dropspecline[cidx]-gausscurve3[cidx]),dropnoiseline[cidx])**2
                         chi2 = np.add.reduce(arrchi2)
                         rchi2 = divz(chi2,len(dropwaveline[cidx])-dof)
-                        print objs[i], coeff3
 
 
                         def mkplot():
@@ -214,7 +205,7 @@ for i in range(19,20):
                             #ax0.plot(dropwaveline,guesscurve3,color='orange',label='Initial Guess')
                             ax0.plot(dropwaveline,dropnoiseline,color='orange',label='Noise')
                             #Titles, axes, legends
-                            ax0.set_title('Fit for line at rest $\lambda$ of ' + str(line) + ', OBJID ' + objs[i][0] + '_' + objs[i][1] + objs[i][2] ,fontsize = titlefont)
+                            ax0.set_title('Fit for line at rest $\lambda$ of ' + str(line) + ', OBJID ' + objs[i][0] + '_' + objs[i][1] + objs[i][2] + ', z=' + str(np.around(zcc,4)),fontsize = titlefont)
                             ax0.legend(fontsize = legendfont,loc=1)
                             ax0.set_xlabel('Wavelength ($\AA$)',fontsize = axisfont)
                             ax0.set_ylabel('Flux ($10^{-17}$ erg/s/${cm}^2/\AA$)',fontsize = axisfont)
@@ -231,16 +222,56 @@ for i in range(19,20):
                         fig.text(0.14,0.84,'Mean:       ' + str(round(mu3,2)),fontsize = textfont)      
                         fig.text(0.14,0.68,'Chi2:         ' + str(round(chi2,2)),fontsize = textfont)      
                         fig.text(0.14,0.64,'rChi2:       ' + str(round(rchi2,2)),fontsize = textfont)
-                        fig.text(0.14,0.60,'Redshift:   ' + str(round(zcc,4)),fontsize = textfont)
+                        #fig.text(0.14,0.60,'Redshift:   ' + str(round(zcc,4)),fontsize = textfont)
                         #fig.text(0.14,0.60,'Luminosity (erg/s):   ' + str(round(lumin,2)),fontsize = textfont)      
                         ax0.plot(dropwaveline,gausscurve3,color='black',label='Gausiian fit')
                         #These lines plot where the chi squared is fitting
                         #ax0.plot((np.min(dropwaveline[cidx]),np.min(dropwaveline[cidx])),(-.5,.5),color='black',label='Gausiian fit')
                         #ax0.plot((np.max(dropwaveline[cidx]),np.max(dropwaveline[cidx])),(-.5,.5),color='black',label='Gausiian fit')
                         ax0.legend(fontsize = legendfont,loc=1)
-                        plt.show()
+                        #plt.show()
                         fig.savefig(figout + objs[i][0] + '_' + objs[i][1] + objs[i][2] + '_' + str(line) + '.png')
                         plt.close()
+                        #Store the results to the output array:
+                        #First we find the index with a matching objid
+                        midx = np.where(outarr.OBJID.astype(float)-float(objs[i][0])==0)[0]
+                        #We make sure outarr has correct column types
+                        if os.path.exists(dataout): 
+                            outarr.OBJID = outarr.OBJID.astype(str)
+                            outarr.Mask = outarr.Mask.astype(str)
+                            outarr.fluxfile = outarr.fluxfile.astype(str)
+                        #We check to make sure there is only one.
+                        #If there are none, we append a new row onto outarr
+                        if len(midx)>1:
+                            print('Error, check text document for duplicates')
+                        elif len(midx)==0:
+                            #Makes the index the length of the array, which will add a new row at the bottom
+                            midx = len(outarr)
+                            #Store the info that doesn't change
+                            outarr.at[midx,'OBJID'] = objs[i][0]
+                            outarr.at[midx,'Mask'] = objs[i][1]+objs[i][2]
+                            outarr.at[midx,'fluxfile'] = 'flx_' + objs[i][0] + '_feb1' + objs[i][2] + '_' + objs[i][1] + 'big.fits'
+                            outarr.at[midx,'zcc'] = zcc
+                        #Write in the new info from the fit
+                        if (linename == 'Halpha'):
+                            outarr.at[midx,'Ha_mean'] = mu3
+                            outarr.at[midx,'Ha_stddev'] = stddev3
+                            outarr.at[midx,'Ha_flux'] = flux3
+                            outarr.at[midx,'Ha_scale'] = scale3
+                            outarr.at[midx,'Ha_chi2'] = chi2
+                            outarr.at[midx,'Ha_rchi2'] = rchi2
+                        elif (linename == 'Hbeta'):
+                            outarr.at[midx,'HB_mean'] = mu3
+                            outarr.at[midx,'HB_stddev'] = stddev3
+                            outarr.at[midx,'HB_flux'] = flux3
+                            outarr.at[midx,'HB_scale'] = scale3
+                            outarr.at[midx,'HB_chi2'] = chi2
+                            outarr.at[midx,'HB_rchi2'] = rchi2
+                        else: print('Could not find line name, writing nothing. Check gallines')
+                        
+    
+                        
+                        
                     except (RuntimeError):
                         fig.text(0.14,0.84,'Fitting Failed',fontsize = textfont)
                         #plt.show()
@@ -251,3 +282,13 @@ for i in range(19,20):
 
     #If not, give an error but continue
     else: print('Could not read file ' + flxfits)
+
+###Write the file
+outarr = outarr.sort_values('OBJID')
+outarr = outarr.reindex(sorted(outarr.columns), axis=1)
+outarr.to_csv(dataout,index=False) 
+
+
+#Need to figure out how to output the data table outarr
+#Also need to figure out how ot add strings to pandas array
+#Then take the output file and see if it can be read as input
