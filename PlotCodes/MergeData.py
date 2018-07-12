@@ -9,7 +9,7 @@ import pandas as pd
 #Set where our measured data is stored
 #ourdatapath - the folder where the text files are stored
 #ourdatafiles - a list of the names of all of the data text files
-ourdatapath = '/Users/blorenz/COSMOS/COSMOSData/corFitsFileOut/crossCorOut/'
+ourdatapath = '/Users/blorenz/COSMOS/COSMOSData/corFitsFileOut/'
 ourdatafiles = ['verb_a6.txt','verb_b6.txt','verb_b7.txt','verb_d6.txt','verb_e6.txt','verb_e7.txt','verb_f6.txt','verb_g6.txt','verb_h6.txt','verb_i6.txt','verb_j7.txt']
 
 #The output file for all of our data

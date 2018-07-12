@@ -17,15 +17,15 @@ z_cc = []
 for i in range(0,len(ourdata)):
     temp =  ourdata.iloc[i].temp
     if temp == 23:
-        z_cc.append(ourdata.iloc[i,40])
+        z_cc.append(ourdata.iloc[i,1])
     elif temp == 24:
-        z_cc.append(ourdata.iloc[i,41])
+        z_cc.append(ourdata.iloc[i,7])
     elif temp == 25:
-        z_cc.append(ourdata.iloc[i,42])
+        z_cc.append(ourdata.iloc[i,13])
     elif temp == 26:
-        z_cc.append(ourdata.iloc[i,43])
+        z_cc.append(ourdata.iloc[i,19])
     elif temp == 27:
-        z_cc.append(ourdata.iloc[i,44])
+        z_cc.append(ourdata.iloc[i,25])
     else:
         z_cc.append(None)
 
