@@ -283,10 +283,10 @@ for i in range(len(objs)):
                 bounds3 = ([restwave*(1+zcc)-8,np.log(2)],[restwave*(1+zcc)+8,np.log(10)])
                 #Special case for OII doublet
                 if linename == 'O[II]':
-                    guess3 = (peakwave,np.log(4))
-                    #Set the bounds
-                    bounds3 = ([peakwave-8,np.log(2)],[peakwave+8,np.log(15)])
+                    guess3 = (peakwave,np.log(4))   
                     guesscurve3 = gauss3(dropwaveline,guess3[0],guess3[1])   
+                    #Set the bounds
+                    bounds3 = ([restwave*(1+zcc)-8,np.log(2)],[restwave*(1+zcc)+8,np.log(15)])
                     #Special case for Ha lines, need to set for all three gaussians
                 if HaNII:
                     guessHa = (zcc,np.log(2),np.log(2),np.log(2))
@@ -484,12 +484,13 @@ for i in range(len(objs)):
                             if not HaNII:
                                 ax0.axvspan(np.min(dropwaveline[cidx]),np.max(dropwaveline[cidx]), color='grey', alpha=0.2, label='chi2 region')
                             else:
-                                [ax0.axvspan(np.min(dropwaveline[cidxarr[num]]),np.max(dropwaveline[cidxarr[num]]), color='grey', alpha=0.2, label='chi2 region') for num in np.arange(0,3)]
+                                #[ax0.axvspan(np.min(dropwaveline[cidxarr[num]]),np.max(dropwaveline[cidxarr[num]]), color='grey', alpha=0.2, label='chi2 region') for num in np.arange(0,3)]
+                                pass
                             ax0.plot(waveline,modelline,color='red',label='Model')
                             #ax0.plot(dropwaveline,guesscurve3,color='orange',label='Initial Guess')
                             ax0.plot(dropwaveline,dropnoiseline,color='orange',label='Noise')
                             #Titles, axes, legends
-                            ax0.set_title('Fit for line at rest $\lambda$ of ' + str(int(np.round(restwave))) + ', OBJID ' + objs[i][0] + '_' + objs[i][1] + objs[i][2] + ', z=' + str(np.around(zcc,4)),fontsize = titlefont)
+                            ax0.set_title('H$\\alpha$ and N[II], Rest $\lambda$ ' + str(int(np.round(6563))) + ', z=' + str(np.around(zcc,4)) + ', OBJID ' + objs[i][0] + objs[i][1] + objs[i][2],fontsize = titlefont)
                             ax0.legend(fontsize = legendfont,loc=1)
                             ax0.set_xlabel('Wavelength ($\AA$)',fontsize = axisfont)
                             ax0.set_ylabel('Flux ($10^{-17}$ erg/s/${cm}^2/\AA$)',fontsize = axisfont)
@@ -505,7 +506,7 @@ for i in range(len(objs)):
                             ax0.text(0.02,0.90,'Std Dev:   ' + str(round(stddev3,2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.85,'Scale:       ' + str(round(amp3[1],2)),fontsize = textfont, transform=ax0.transAxes)      
                             ax0.text(0.02,0.80,'Flux:         ' + str(round(amp3[0],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.75,'Sumflux:   ' + str(round(sumflux,2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.75,'Sumflux:   ' + str(round(sumflux,2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.70,'Chi2:        ' + str(round(chi2,2)),fontsize = textfont, transform=ax0.transAxes)      
                             ax0.text(0.02,0.65,'rChi2:       ' + str(round(rchi2,2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.60,'wsig:        ' + str(round(wsig,3)),fontsize = textfont, transform=ax0.transAxes)
@@ -514,19 +515,19 @@ for i in range(len(objs)):
                             ax0.text(0.02,0.95,'Mean:    ' + str(round(HaNIIdat.iloc[0]['mu'],2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.24,0.95, str(round(HaNIIdat.iloc[1]['mu'],2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.40,0.95, str(round(HaNIIdat.iloc[2]['mu'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.90,'Std Dev: ' + str(round(HaNIIdat.iloc[0]['sig'],2)),fontsize = textfont, transform=ax0.transAxes)
+                            ax0.text(0.02,0.90,'Sigma:   ' + str(round(HaNIIdat.iloc[0]['sig'],2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.24,0.90, str(round(HaNIIdat.iloc[1]['sig'],2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.40,0.90, str(round(HaNIIdat.iloc[2]['sig'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.85,'Flux:   ' + str(round(HaNIIdat.iloc[0]['flux'],2)),fontsize = textfont, transform=ax0.transAxes)
+                            ax0.text(0.02,0.85,'Flux:      ' + str(round(HaNIIdat.iloc[0]['flux'],2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.24,0.85, str(round(HaNIIdat.iloc[1]['flux'],2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.40,0.85, str(round(HaNIIdat.iloc[2]['flux'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.80,'Flag:   ' + str(int(HaNIIdat.iloc[0]['flag'])),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.15,0.80, str(int(HaNIIdat.iloc[1]['flag'])),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.28,0.80, str(int(HaNIIdat.iloc[2]['flag'])),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.75, 'Scale:  ' + str(round(HaNIIdat.iloc[2]['scale'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.70, 'zfit:   ' + str(round(zgauss,4)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.65, 'chi2tot: ' + str(round(chi2tot,2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.60, 'rchi2tot: ' + str(round(rchi2tot,2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.80,'Flag:   ' + str(int(HaNIIdat.iloc[0]['flag'])),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.15,0.80, str(int(HaNIIdat.iloc[1]['flag'])),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.28,0.80, str(int(HaNIIdat.iloc[2]['flag'])),fontsize = textfont, transform=ax0.transAxes)
+                            ax0.text(0.02,0.80, 'Scale:     ' + str(round(HaNIIdat.iloc[2]['scale'],2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.75, 'zfit:      ' + str(round(zgauss,4)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.65, 'chi2tot: ' + str(round(chi2tot,2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.60, 'rchi2tot: ' + str(round(rchi2tot,2)),fontsize = textfont, transform=ax0.transAxes)
                             
                         
                         if fitflag:
@@ -626,7 +627,7 @@ outarr = outarr.fillna(value = -99.999999999999)
 #outarr = outarr.drop('Ha_chi2',axis=1)
 
 #Write the file
-outarr.to_csv(dataout,index=False)
+#outarr.to_csv(dataout,index=False)
 
 
 #Save the figure
@@ -634,8 +635,8 @@ outarr.to_csv(dataout,index=False)
 fig.tight_layout()
 figb.tight_layout()
 if HaNII: linename = 'HaNII'
-fig.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '.pdf')
-figb.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_flagged.pdf')
+fig.savefig(figout + 'HaNIIforpres.pdf')
+figb.savefig(figout + 'HaNIIforpres_flagged.pdf')
 plt.close(fig)
 plt.close(figb)
                         

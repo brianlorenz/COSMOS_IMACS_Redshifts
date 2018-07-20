@@ -16,6 +16,24 @@ from scipy.interpolate import splrep, splev
 from scipy.signal import medfilt
 from scipy.optimize import curve_fit,nnls
 
+
+
+
+
+plotguess = 0
+plotgauss = 1
+plotnoise = 0
+plotmodel = 1
+meantext = 1
+sigmatext = 1
+scaletext = 1
+fluxtext = 1
+ymin,ymax = -0.1,1.6
+badlabel = 1
+
+
+
+
 #Location of output data file
 dataout = '/Users/blorenz/COSMOS/COSMOSData/lineflux.txt'
 viewdataout = '/Users/blorenz/COSMOS/COSMOSData/lineflux_view.txt'
@@ -52,8 +70,8 @@ def divz(X,Y):
         return X/np.where(Y,Y,Y+1)*np.not_equal(Y,0)
 
 #Fontsizes for plotting
-axisfont = 18
-ticksize = 16
+axisfont = 24
+ticksize = 20
 titlefont = 24
 legendfont = 16
 textfont = 16
@@ -94,14 +112,23 @@ plt10 = 0
 plt1b = 0
 plt10b = 0
 #Set the gridsize, so 12 means a 12x12 grid
-gridsize = 12
+#gridsize = 12
+gridsize = 1
 #Start the plot before the loop:
-fig,axarr = plt.subplots(gridsize,gridsize,figsize = (150,80))
-figb,axarrb = plt.subplots(gridsize,gridsize,figsize = (150,80))
+#fig,axarr = plt.subplots(gridsize,gridsize,figsize = (150,80))
+#figb,axarrb = plt.subplots(gridsize,gridsize,figsize = (150,80))
+fig,ax = plt.subplots(gridsize,gridsize,figsize = (13,7.5))
+#figb,axb = plt.subplots(gridsize,gridsize,figsize = (13,7))
+axarr = np.array([[ax,ax],[ax,ax]])
+#axarrb = np.array([[axb,axb],[axb,axb]])
 
 #Loop the fitting over all objects
 #for i in range(16,20):
-for i in range(len(objs)):
+### 91 was the first object
+### 58 had bad data - b6
+### 29 had a wide sigma - b6
+### 56 nondetection - b6
+for i in range(58,200):
     #Mark the data as good
     fitflag = 0     #Good data
     #Set that we are not looking at the lines around Ha
@@ -277,16 +304,17 @@ for i in range(len(objs)):
                 pkidx = np.argmax(shspecline)+srange/2-shrange/2
                 #Wavelength of peak
                 peakwave = waveline[pkidx]
+                peak47 = peakwave
                 guess3 = (peakwave,np.log(2))   
                 guesscurve3 = gauss3(dropwaveline,guess3[0],guess3[1])
                 #Set the bounds, from expected position of the line +- 4 pixels, and sigma from 2 to 10
                 bounds3 = ([restwave*(1+zcc)-8,np.log(2)],[restwave*(1+zcc)+8,np.log(10)])
                 #Special case for OII doublet
                 if linename == 'O[II]':
-                    guess3 = (peakwave,np.log(4))
-                    #Set the bounds
-                    bounds3 = ([peakwave-8,np.log(2)],[peakwave+8,np.log(15)])
+                    guess3 = (peakwave,np.log(4))   
                     guesscurve3 = gauss3(dropwaveline,guess3[0],guess3[1])   
+                    #Set the bounds
+                    bounds3 = ([restwave*(1+zcc)-8,np.log(2)],[restwave*(1+zcc)+8,np.log(15)])
                     #Special case for Ha lines, need to set for all three gaussians
                 if HaNII:
                     guessHa = (zcc,np.log(2),np.log(2),np.log(2))
@@ -455,7 +483,7 @@ for i in range(len(objs)):
                             
                             #Set the axis to the correct number - check if it is flagged or not
                             if fitflag:
-                                ax0 = axarrb[plt10b,plt1b]
+                                ax0 = axarr[plt10,plt1]
                                 #Increment the counters for next time
                                 plt1b = plt1b + 1
                                 if plt1b == gridsize:
@@ -479,17 +507,21 @@ for i in range(len(objs)):
                                     except: [ax0.axvspan(np.min(waveline[j]),np.max(waveline[j]), color='indianred', alpha=0.1) for j in dropidx]
                             #Check if any weights were set to 0 - if so, plot the mask for those
                             if np.where(w<=0)[0].any():
-                                [ax0.plot(dropwaveline[j],dropspecline[j], marker='o', color='red', alpha=0.7) for j in np.where(w<=0)[0]]
+                                [ax0.plot(dropwaveline[j],dropspecline[j], marker='o', color='crimson', alpha=1) for j in np.where(w<=0)[0]]
                             #Plot the region over which we fit chi2
                             if not HaNII:
-                                ax0.axvspan(np.min(dropwaveline[cidx]),np.max(dropwaveline[cidx]), color='grey', alpha=0.2, label='chi2 region')
+                                #ax0.axvspan(np.min(dropwaveline[cidx]),np.max(dropwaveline[cidx]), color='grey', alpha=0.2, label='chi2 region')
+                                pass
                             else:
                                 [ax0.axvspan(np.min(dropwaveline[cidxarr[num]]),np.max(dropwaveline[cidxarr[num]]), color='grey', alpha=0.2, label='chi2 region') for num in np.arange(0,3)]
-                            ax0.plot(waveline,modelline,color='red',label='Model')
-                            #ax0.plot(dropwaveline,guesscurve3,color='orange',label='Initial Guess')
-                            ax0.plot(dropwaveline,dropnoiseline,color='orange',label='Noise')
+                                
+                            if plotmodel: ax0.plot(waveline,modelline,color='red',label='Model')
+                            if plotguess: ax0.plot(dropwaveline,guesscurve3,color='black',label='Initial Guess')
+                            if plotnoise: ax0.plot(dropwaveline,dropnoiseline,color='orange',label='Noise')
+                            if plotgauss: ax0.plot(dropwaveline,gausscurve3,color='black',label='Gaussian fit')
+                            if badlabel: ax0.plot(dropwaveline[10],dropwaveline[10], marker='o', color='crimson', alpha=1,ls='none',zorder=100,label='Bad Data')
                             #Titles, axes, legends
-                            ax0.set_title('Fit for line at rest $\lambda$ of ' + str(int(np.round(restwave))) + ', OBJID ' + objs[i][0] + '_' + objs[i][1] + objs[i][2] + ', z=' + str(np.around(zcc,4)),fontsize = titlefont)
+                            ax0.set_title('H$\\beta$, Rest $\lambda$ ' + str(int(np.round(restwave))) + ', z= ' + str(np.around(zcc,4)) + ', OBJID ' + objs[i][0]  + 'b6' ,fontsize = titlefont)
                             ax0.legend(fontsize = legendfont,loc=1)
                             ax0.set_xlabel('Wavelength ($\AA$)',fontsize = axisfont)
                             ax0.set_ylabel('Flux ($10^{-17}$ erg/s/${cm}^2/\AA$)',fontsize = axisfont)
@@ -501,15 +533,21 @@ for i in range(len(objs)):
 
                         ax0,plt10,plt1,plt10b,plt1b = mkplot(plt10,plt1,plt10b,plt1b,gridsize)
                         if not HaNII:
-                            ax0.text(0.02,0.95,'Mean:       ' + str(round(mu3,2)),fontsize = textfont, transform=ax0.transAxes)      
-                            ax0.text(0.02,0.90,'Std Dev:   ' + str(round(stddev3,2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.85,'Scale:       ' + str(round(amp3[1],2)),fontsize = textfont, transform=ax0.transAxes)      
-                            ax0.text(0.02,0.80,'Flux:         ' + str(round(amp3[0],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.75,'Sumflux:   ' + str(round(sumflux,2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.70,'Chi2:        ' + str(round(chi2,2)),fontsize = textfont, transform=ax0.transAxes)      
-                            ax0.text(0.02,0.65,'rChi2:       ' + str(round(rchi2,2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.60,'wsig:        ' + str(round(wsig,3)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.55,'usig:         ' + str(round(usig,3)),fontsize = textfont, transform=ax0.transAxes)
+                            if meantext:
+                                if plotguess: ax0.text(0.02,0.95,'Mean:       ' + str(round(peak47,2)),fontsize = textfont, transform=ax0.transAxes)
+                                else: ax0.text(0.02,0.95,'Mean:       ' + str(round(mu3,2)),fontsize = textfont, transform=ax0.transAxes)      
+                            if sigmatext:
+                                if plotguess: ax0.text(0.02,0.90,'Sigma:      ' + str(round(2,2)),fontsize = textfont, transform=ax0.transAxes)
+                                else: ax0.text(0.02,0.90,'Sigma:      ' + str(round(stddev3,2)),fontsize = textfont, transform=ax0.transAxes)
+                            if scaletext:
+                                ax0.text(0.02,0.85,'Scale:       ' + str(round(amp3[1],2)),fontsize = textfont, transform=ax0.transAxes)      
+                            if fluxtext:
+                                ax0.text(0.02,0.80,'Flux:         ' + str(round(amp3[0],2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.75,'Sumflux:   ' + str(round(sumflux,2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.70,'Chi2:        ' + str(round(chi2,2)),fontsize = textfont, transform=ax0.transAxes)      
+                            #ax0.text(0.02,0.65,'rChi2:       ' + str(round(rchi2,2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.60,'wsig:        ' + str(round(wsig,3)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.55,'usig:         ' + str(round(usig,3)),fontsize = textfont, transform=ax0.transAxes)
                         else:
                             ax0.text(0.02,0.95,'Mean:    ' + str(round(HaNIIdat.iloc[0]['mu'],2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.24,0.95, str(round(HaNIIdat.iloc[1]['mu'],2)),fontsize = textfont, transform=ax0.transAxes)
@@ -520,7 +558,7 @@ for i in range(len(objs)):
                             ax0.text(0.02,0.85,'Flux:   ' + str(round(HaNIIdat.iloc[0]['flux'],2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.24,0.85, str(round(HaNIIdat.iloc[1]['flux'],2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.40,0.85, str(round(HaNIIdat.iloc[2]['flux'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.80,'Flag:   ' + str(int(HaNIIdat.iloc[0]['flag'])),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.80,'Flag:   ' + str(int(HaNIIdat.iloc[0]['flag'])),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.15,0.80, str(int(HaNIIdat.iloc[1]['flag'])),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.28,0.80, str(int(HaNIIdat.iloc[2]['flag'])),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.75, 'Scale:  ' + str(round(HaNIIdat.iloc[2]['scale'],2)),fontsize = textfont, transform=ax0.transAxes)
@@ -530,11 +568,13 @@ for i in range(len(objs)):
                             
                         
                         if fitflag:
-                            ax0.text(0.02,0.50,'flag:          ' + str(fitflag),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.50,'flag:          ' + str(fitflag),fontsize = textfont, transform=ax0.transAxes)
+                            pass
                         #fig.text(0.14,0.60,'Redshift:   ' + str(round(zcc,4)),fontsize = textfont)
                         #fig.text(0.14,0.60,'Luminosity (erg/s):   ' + str(round(lumin,2)),fontsize = textfont)
                         if not HaNII:
-                            ax0.plot(dropwaveline,gausscurve3,color='black',label='Gaussian fit')
+                            
+                            pass
                         else:
                             ax0.plot(dropwaveline,gausscurveHa,color='black',label='Gaussian fit')
                         ax0.legend(fontsize = legendfont,loc=1)
@@ -565,6 +605,13 @@ for i in range(len(objs)):
                             outarr.at[midx,'Mask'] = objs[i][1]+objs[i][2]
                             outarr.at[midx,'fluxfile'] = 'flx_' + objs[i][0] + '_feb1' + objs[i][2] + '_' + objs[i][1] + 'big.fits'
                             outarr.at[midx,'zcc'] = zcc
+                        ax0.set_ylim(ymin,ymax)
+                        
+                        plt.show()
+                        plt.close()
+                        savename = input('Name to save file?')
+                        fig.savefig('/Users/blorenz/COSMOS/Reports/2018/Images/Fitting/' + savename + '.png')
+                        sys.exit('Saved')
                             
                         #Write in the new info from the fit. outarr.at auto generates new columns if needed
                         if not HaNII:
@@ -626,7 +673,7 @@ outarr = outarr.fillna(value = -99.999999999999)
 #outarr = outarr.drop('Ha_chi2',axis=1)
 
 #Write the file
-outarr.to_csv(dataout,index=False)
+#outarr.to_csv(dataout,index=False)
 
 
 #Save the figure

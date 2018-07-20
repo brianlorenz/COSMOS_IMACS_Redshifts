@@ -255,19 +255,19 @@ for i in range(len(objs)):
                     A,B = nnls(np.transpose([g,m])*w[::,np.newaxis],dropspecline*w)[0]
                     return A,B
 
-                def gaussHa(x, z, sigma48, sigma63, sigma83):
-                    A48,A63,A83,B  = ampHa(x, z, sigma48, sigma63, sigma83)
-                    g48 = np.exp(-0.5*(x-(6548.1*(1+z)))**2/(np.e**sigma48)**2)/np.sqrt(2*np.pi*(np.e**sigma48)**2)
-                    g63 = np.exp(-0.5*(x-(6562.8*(1+z)))**2/(np.e**sigma63)**2)/np.sqrt(2*np.pi*(np.e**sigma63)**2)
-                    g83 = np.exp(-0.5*(x-(6583.0*(1+z)))**2/(np.e**sigma83)**2)/np.sqrt(2*np.pi*(np.e**sigma83)**2)
+                def gaussHa(x, z, sigma):
+                    A48,A63,A83,B  = ampHa(x, z, sigma)
+                    g48 = np.exp(-0.5*(x-(6548.1*(1+z)))**2/(np.e**sigma)**2)/np.sqrt(2*np.pi*(np.e**sigma)**2)
+                    g63 = np.exp(-0.5*(x-(6562.8*(1+z)))**2/(np.e**sigma)**2)/np.sqrt(2*np.pi*(np.e**sigma)**2)
+                    g83 = np.exp(-0.5*(x-(6583.0*(1+z)))**2/(np.e**sigma)**2)/np.sqrt(2*np.pi*(np.e**sigma)**2)
                     s = A48*g48 + A63*g63 + A83*g83 + B*m
                     return s
 
                 #A is area under Gauss curve, B is the scale factor of the continuum
-                def ampHa(x, z, sigma48, sigma63, sigma83):
-                    g48 = np.exp(-0.5*(x-(6548.1*(1+z)))**2/(np.e**sigma48)**2)/np.sqrt(2*np.pi*(np.e**sigma48)**2)
-                    g63 = np.exp(-0.5*(x-(6562.8*(1+z)))**2/(np.e**sigma63)**2)/np.sqrt(2*np.pi*(np.e**sigma63)**2)
-                    g83 = np.exp(-0.5*(x-(6583.0*(1+z)))**2/(np.e**sigma83)**2)/np.sqrt(2*np.pi*(np.e**sigma83)**2)
+                def ampHa(x, z, sigma):
+                    g48 = np.exp(-0.5*(x-(6548.1*(1+z)))**2/(np.e**sigma)**2)/np.sqrt(2*np.pi*(np.e**sigma)**2)
+                    g63 = np.exp(-0.5*(x-(6562.8*(1+z)))**2/(np.e**sigma)**2)/np.sqrt(2*np.pi*(np.e**sigma)**2)
+                    g83 = np.exp(-0.5*(x-(6583.0*(1+z)))**2/(np.e**sigma)**2)/np.sqrt(2*np.pi*(np.e**sigma)**2)
                     A48,A63,A83,B = nnls(np.transpose([g48,g63,g83,m])*w[::,np.newaxis],dropspecline*w)[0]
                     return A48,A63,A83,B 
 
@@ -283,15 +283,15 @@ for i in range(len(objs)):
                 bounds3 = ([restwave*(1+zcc)-8,np.log(2)],[restwave*(1+zcc)+8,np.log(10)])
                 #Special case for OII doublet
                 if linename == 'O[II]':
-                    guess3 = (peakwave,np.log(4))
-                    #Set the bounds
-                    bounds3 = ([peakwave-8,np.log(2)],[peakwave+8,np.log(15)])
+                    guess3 = (peakwave,np.log(4))   
                     guesscurve3 = gauss3(dropwaveline,guess3[0],guess3[1])   
+                    #Set the bounds
+                    bounds3 = ([restwave*(1+zcc)-8,np.log(2)],[restwave*(1+zcc)+8,np.log(15)])
                     #Special case for Ha lines, need to set for all three gaussians
                 if HaNII:
-                    guessHa = (zcc,np.log(2),np.log(2),np.log(2))
-                    guesscurveHa = gaussHa(dropwaveline,guessHa[0],guessHa[1],guessHa[2],guessHa[3])
-                    boundsHa =  ([zcc-0.0012,np.log(2),np.log(2),np.log(2)],[zcc+0.0012,np.log(10),np.log(10),np.log(10)])
+                    guessHa = (zcc,np.log(2))
+                    guesscurveHa = gaussHa(dropwaveline,guessHa[0],guessHa[1])
+                    boundsHa =  ([zcc-0.0012,np.log(2)],[zcc+0.0012,np.log(10)])
                     
 
                 
@@ -346,14 +346,14 @@ for i in range(len(objs)):
                             flux3 = amp3[0]
                             scale3 = amp3[1]
                         else:
-                            gausscurveHa = gaussHa(dropwaveline,coeffHa[0],coeffHa[1],coeffHa[2],coeffHa[3])
-                            ampHa = ampHa(dropwaveline,coeffHa[0],coeffHa[1],coeffHa[2],coeffHa[3])
+                            gausscurveHa = gaussHa(dropwaveline,coeffHa[0],coeffHa[1])
+                            ampHa = ampHa(dropwaveline,coeffHa[0],coeffHa[1])
                             #Fit redshift
                             zgauss = coeffHa[0]
                             #Mean of each line
                             for num in np.arange(0,3):
                                 HaNIIdat.at[num,'mu'] = HaNIIdat.iloc[num]['restwave']*(1+zgauss)
-                                HaNIIdat.at[num,'sig'] = np.e**np.abs(coeffHa[num+1])
+                                HaNIIdat.at[num,'sig'] = np.e**np.abs(coeffHa[1])
                                 HaNIIdat.at[num,'flux'] = ampHa[num]
                                 HaNIIdat.at[num,'scale'] = ampHa[3]
                             mu3 = HaNIIdat.iloc[1]['mu']
@@ -378,7 +378,7 @@ for i in range(len(objs)):
                             sumflux = 2*np.add.reduce(dropspecline[cidx]-dropmodelline[cidx])
                         else:
                             #Degrees of freedom: z, scale, sigma (x3, for each line), area (x3, for each line)
-                            dof = 8
+                            dof = 6
                             cidxarr = []
                             #Set the lower and upper bounds for the region to find chi2
                             for num in np.arange(0,3):
@@ -582,20 +582,20 @@ for i in range(len(objs)):
                             linearr = ['6548','6563','6583']
                             counter = 0
                             for linestr in linearr:
-                                outarr.at[midx,linestr + '_mean'] = HaNIIdat.iloc[counter]['mu']
-                                outarr.at[midx,linestr + '_stddev'] = HaNIIdat.iloc[counter]['sig']
-                                outarr.at[midx,linestr + '_flux'] = HaNIIdat.iloc[counter]['flux']
-                                outarr.at[midx,linestr + '_scale'] = HaNIIdat.iloc[counter]['scale']
-                                outarr.at[midx,linestr + '_chi2'] = HaNIIdat.iloc[counter]['chi2']
-                                outarr.at[midx,linestr + '_rchi2'] = HaNIIdat.iloc[counter]['rchi2']
-                                outarr.at[midx,linestr + '_sumflux'] = HaNIIdat.iloc[counter]['sumflux']
-                                outarr.at[midx,linestr + '_wsig'] = HaNIIdat.iloc[counter]['wsig']
-                                outarr.at[midx,linestr + '_usig'] = HaNIIdat.iloc[counter]['usig']
-                                outarr.at[midx,linestr + '_flag'] = HaNIIdat.iloc[counter]['flag']
+                                outarr.at[midx,linestr + '_fix_mean'] = HaNIIdat.iloc[counter]['mu']
+                                outarr.at[midx,linestr + '_fix_stddev'] = HaNIIdat.iloc[counter]['sig']
+                                outarr.at[midx,linestr + '_fix_flux'] = HaNIIdat.iloc[counter]['flux']
+                                outarr.at[midx,linestr + '_fix_scale'] = HaNIIdat.iloc[counter]['scale']
+                                outarr.at[midx,linestr + '_fix_chi2'] = HaNIIdat.iloc[counter]['chi2']
+                                outarr.at[midx,linestr + '_fix_rchi2'] = HaNIIdat.iloc[counter]['rchi2']
+                                outarr.at[midx,linestr + '_fix_sumflux'] = HaNIIdat.iloc[counter]['sumflux']
+                                outarr.at[midx,linestr + '_fix_wsig'] = HaNIIdat.iloc[counter]['wsig']
+                                outarr.at[midx,linestr + '_fix_usig'] = HaNIIdat.iloc[counter]['usig']
+                                outarr.at[midx,linestr + '_fix_flag'] = HaNIIdat.iloc[counter]['flag']
                                 counter = counter + 1
-                            outarr.at[midx,'6563_chi2tot'] = chi2tot
-                            outarr.at[midx,'6563_rchi2tot'] = rchi2tot
-                            outarr.at[midx,'6563_zgauss'] = zgauss
+                            outarr.at[midx,'6563_fix_chi2tot'] = chi2tot
+                            outarr.at[midx,'6563_fix_rchi2tot'] = rchi2tot
+                            outarr.at[midx,'6563_fix_zgauss'] = zgauss
                        
                         '''
                         Flag values:
@@ -624,6 +624,22 @@ outarr = outarr.reindex(sorted(outarr.columns), axis=1)
 outarr = outarr.fillna(value = -99.999999999999)
 #Remove columns with this, then take it back out
 #outarr = outarr.drop('Ha_chi2',axis=1)
+'''
+for linestr in linearr:
+    fluxdata = fluxdata.rename(columns={linestr + '_mean_fix':linestr + '_fix_mean'})
+    fluxdata = fluxdata.rename(columns={linestr + '_stddev_fix':linestr + '_fix_stddev'})
+    fluxdata = fluxdata.rename(columns={linestr + '_flux_fix':linestr + '_fix_flux'})
+    fluxdata = fluxdata.rename(columns={linestr + '_scale_fix':linestr + '_fix_scale'})
+    fluxdata = fluxdata.rename(columns={linestr + '_chi2_fix':linestr + '_fix_chi2'})
+    fluxdata = fluxdata.rename(columns={linestr + '_rchi2_fix':linestr + '_fix_rchi2'})
+    fluxdata = fluxdata.rename(columns={linestr + '_sumflux_fix':linestr + '_fix_sumflux'})
+    fluxdata = fluxdata.rename(columns={linestr + '_wsig_fix':linestr + '_fix_wsig'})
+    fluxdata = fluxdata.rename(columns={linestr + '_usig_fix':linestr + '_fix_usig'})
+    fluxdata = fluxdata.rename(columns={linestr + '_flag_fix':linestr + '_fix_flag'})
+fluxdata = fluxdata.rename(columns={'6563_chi2tot_fix':'6563_fix_chi2tot'})
+fluxdata = fluxdata.rename(columns={'6563_rchi2tot_fix':'6563_fix_rchi2tot'})
+fluxdata = fluxdata.rename(columns={'6563_zgauss_fix':'6563_fix_zgauss'})
+'''                       
 
 #Write the file
 outarr.to_csv(dataout,index=False)
@@ -634,13 +650,8 @@ outarr.to_csv(dataout,index=False)
 fig.tight_layout()
 figb.tight_layout()
 if HaNII: linename = 'HaNII'
-fig.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '.pdf')
-figb.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_flagged.pdf')
+fig.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_1sig.pdf')
+figb.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_flagged_1sig.pdf')
 plt.close(fig)
 plt.close(figb)
                         
-
-
-'''
-Make a bpt diagram, look at spectra of possible AGN
-'''

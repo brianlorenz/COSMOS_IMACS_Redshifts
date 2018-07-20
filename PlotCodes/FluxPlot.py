@@ -29,7 +29,8 @@ ourfilters = ourdata[['u','IB427','B','IB464','gp','IA484','IB505','IA527','V','
 ourerrors = ourdata[['eu','eIB427','eB','eIB464','egp','eIA484','eIB505','eIA527','eV','eIB574','eIA624','erp','eIA679','eIB709','eIA738','eIA767','eip','eIB827','ezp','eY','eJ','eH','eKs']]
 
 
-for i in range(0,len(ourfilters)):
+#for i in range(0,len(ourfilters)):
+for i in range(0,1):
     OBJID = ourdata.iloc[i].ImageName[4:10]
     fig,ax = plt.subplots()
     ax.errorbar(filterlist.Wavelength,np.divide(ourfilters.iloc[i],filterlist.Wavelength),yerr = np.divide(ourerrors.iloc[i],filterlist.Wavelength),
@@ -38,6 +39,7 @@ for i in range(0,len(ourfilters)):
     ax.set_xlabel('Wavelength (Angstroms)')
     ax.set_ylabel('F_lambda (units still off)')
     ax.set_title('ULTRAVista Photometry for our objects, objid ' + OBJID)
-    fig.savefig(figout + OBJID + '_FluxPlot.png')
+    plt.show()
+    #fig.savefig(figout + OBJID + '_FluxPlot.png')
     plt.close()
 

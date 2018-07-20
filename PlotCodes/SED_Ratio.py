@@ -189,7 +189,7 @@ normdeblaze84 = np.percentile(ndeblaze,84,axis=0)
 #Polynomial fitting to the deblazed, normalized spectrum
 order = 4
 #only fit to data before 9200 angstroms since it is noisy after that
-polyidx = np.where(wavelength < 9200)
+polyidx = np.logical_and((wavelength < 9200),(wavelength > 5250))
 #Median filter the spectrum to get rid of the giant peaks
 snormdeblaze50 = medfilt(normdeblaze50,51)
 #Fit a polynomial to the median filtered spectrum,but only in the disred wavelengths
@@ -271,14 +271,14 @@ if 1 == 1:
         corspec = divz(spec/exptime,polygraph*flat*m/medflat)
     
         #Plot the flux-calibrated corrected spectrum for one object
-        fig, axarr = plt.subplots(2,2,figsize=(14,8),sharex=True)
-        ax0,ax3,ax1,ax2 = axarr[0,0],axarr[0,1],axarr[1,0],axarr[1,1]
-        ax0.plot(wavelength,spec, color='cornflowerblue', label = 'Orginial Spectrum')
+        fig, axarr = plt.subplots(2,2,figsize=(14,8))#,sharex=True)
+        ax1,ax2,ax0,ax3 = axarr[0,0],axarr[0,1],axarr[1,0],axarr[1,1]
+        
         #ax0.plot(wavelength,noise, color='noise', label = 'Noise')
-        ax1.plot(wavelength,normdeblaze84, color='lightgray', label = '+$\sigma$')
-        Briax1.plot(wavelength,normdeblaze16, color='gray', label = '-$\sigma$')
-        ax1.plot(wavelength,normdeblaze50, color='Black', label = 'Median')
-        ax1.plot(wavelength,polygraph, color='C1', label = 'Polynomial Fit') #, order ' + str(order))
+        #ax1.plot(wavelength,normdeblaze84, color='lightgray', label = '+$\sigma$')
+        #ax1.plot(wavelength,normdeblaze16, color='gray', label = '-$\sigma$')
+        #ax1.plot(wavelength,normdeblaze50, color='Black', label = 'Median')
+        ax1.plot(wavelength,polygraph, color='cyan',lw=3, label = 'Polynomial Fit') #, order ' + str(order))
         ax1.plot([9200,9200],[-1000,1000],color='C1',ls='-')
         #ax2.plot(wavelength,corspec,color='cornflowerblue',label='Corrected Spectrum')
         ax3.plot(wavelength,flat,color='cornflowerblue',label='Flat')
@@ -288,30 +288,37 @@ if 1 == 1:
             flxdata = fits.open(flxfits)[0].data
             flxspec = flxdata[0]
             model = flxdata[3]
-            ax2.plot(wavelength,flxspec*10**(-17),color='cornflowerblue',label='Flux-Calibrated Spectrum', alpha=1)
+            #ax2.plot(wavelength,flxspec*10**(-17),color='cornflowerblue',label='Flux-Calibrated Spectrum', alpha=1)
             ax2.plot(wavelength,model*10**(-17),color='red',label='Stellar Population Model',alpha=1)
+            modeldiv = divz(spec,model)
         #ax2.plot(sedmodel2['lambda'],sedmodel2['model'],color='red',label='Model Spectrum',alpha=0.5)
+        ax0.plot(wavelength,modeldiv, color='cornflowerblue', label = 'Orginial Spectrum')
         titlefont = 18
         axisfont = 14
         ticklabel = 12
         ax0.set_title('Original Spectrum ' + OBJID + '_' + letnum,fontsize=titlefont)
         ax1.set_title('Normalized Deblazed Flux Ratio',fontsize=titlefont)
-        ax2.set_title('Flux-Calibrated Spectrum',fontsize=titlefont)
+        #ax2.set_title('Flux-Calibrated Spectrum',fontsize=titlefont)
         ax3.set_title('Flatfield Spectrum',fontsize=titlefont)
         scale = 2.5
-        ax0.set_ylim(0,scale*np.median(spec))
+        ax0.set_ylim(0,scale*np.median(modeldiv))
         ax3.set_ylim(0,scale*np.median(flat))
         ax1.set_ylim(0,scale*np.median(normdeblaze50))
         ax2.set_ylim(0,scale*np.median(flxspec*10**(-17)))
-        ax2.legend()
-        ax1.legend()
+        #ax2.legend()
+        #ax1.legend()
         ax1.set_xlabel('Wavelength ($\AA$)',fontsize = axisfont)
         ax2.set_xlabel('Wavelength ($\AA$)',fontsize = axisfont)
+        ax0.set_xlabel('Wavelength ($\AA$)',fontsize = axisfont)
+        ax3.set_xlabel('Wavelength ($\AA$)',fontsize = axisfont)
         ax0.set_ylabel('Counts',fontsize = axisfont)
         ax3.set_ylabel('Counts',fontsize = axisfont)
         ax1.set_ylabel('Normalized Counts',fontsize = axisfont)
         ax2.set_ylabel('Flux (erg/s/${cm}^2/\AA$)',fontsize = axisfont)
-        ax3.set_xlim(4800,11000)
+        ax0.set_xlim(4800,9000)
+        ax1.set_xlim(4800,9000)
+        ax2.set_xlim(4800,9000)
+        ax3.set_xlim(4800,9000)
         ax0.tick_params(labelsize=ticklabel)
         ax1.tick_params(labelsize=ticklabel)
         ax2.tick_params(labelsize=ticklabel)
