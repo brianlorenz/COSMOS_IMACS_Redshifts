@@ -621,3 +621,41 @@ plt.close(fig)
 #Ha/Hb v Hb/Hg
 #Look at AGN spectra, plot them next to each other
 
+
+
+
+#Plot of Haflux vs Hgflux of duplicates
+
+minlim= 0.005
+maxlim= 100
+
+#Filter to get the good and back liens
+flagidx = (fluxdata['6563_fix_flag']==0)
+flagidx = np.logical_and(flagidx,(fluxdata['4340_flag']==0))
+goodflux = fluxdata[flagidx]
+badflux = fluxdata[np.logical_not(flagidx)]
+
+
+xdata = divz(goodflux['4340_flux'],goodflux['4340_scale'])
+ydata = divz(goodflux['6563_fix_flux'],goodflux['6563_fix_scale'])
+   
+lw=0.25
+mark='.'
+
+fig,ax = plt.subplots(figsize=(8,7))
+ax.scatter(xdata,ydata,color='blue',marker=mark,label='Galaxy with good fit')
+#ax.plot((0,1000),(0,1000),color='black',ls='--')
+
+#Titles, axes, legends
+ax.set_title('H$\\alpha$ Flux vs H$\\gamma$ Flux',fontsize = titlefont)
+ax.legend(fontsize = legendfont)
+ax.set_xlabel('H$\\gamma$ Flux ($10^{-17}$ erg/s/$cm^2$)',fontsize = axisfont)
+ax.set_ylabel('H$\\alpha$ Flux ($10^-{17}$ erg/s/$cm^2$)',fontsize = axisfont)
+ax.set_xscale("log")
+ax.set_yscale("log")
+ax.set_xlim(minlim,maxlim)
+ax.set_ylim(minlim,maxlim)
+ax.tick_params(labelsize = ticksize)
+plt.show()
+fig.savefig(figout + 'HaHg_flux.pdf')
+plt.close(fig)

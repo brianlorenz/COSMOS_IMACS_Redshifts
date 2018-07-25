@@ -65,7 +65,7 @@ letnum = sys.argv[1]
 ourdata = ascii.read(ourdatapath).to_pandas()
 ourdata = ourdata[ourdata.ImageName.str.contains('feb1' + letnum[1] + '_' + letnum[0]) == True]
 ourdata = ourdata[ourdata.Unsure == 0]
-ourdata = ourdata[ourdata.Bad == 0]
+#ourdata = ourdata[ourdata.Bad == 0]
 ourdata = ourdata[ourdata.Flag3 == 0]
 #ourdata = ourdata[ourdata.Flag1 == 0]
 ourdata = ourdata[ourdata.Star == 0]
@@ -282,7 +282,7 @@ for i in range(len(objs)):
                 #Set the bounds, from expected position of the line +- 4 pixels, and sigma from 2 to 10
                 bounds3 = ([restwave*(1+zcc)-8,np.log(2)],[restwave*(1+zcc)+8,np.log(10)])
                 #Special case for OII doublet
-                if linename == 'O[II]':
+                if (line == 3727):
                     guess3 = (peakwave,np.log(4))
                     #Set the bounds
                     bounds3 = ([peakwave-8,np.log(2)],[peakwave+8,np.log(15)])
