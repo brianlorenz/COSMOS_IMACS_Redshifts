@@ -21,7 +21,7 @@ dataout = '/Users/blorenz/COSMOS/COSMOSData/lineflux_tot.txt'
 viewdataout = '/Users/blorenz/COSMOS/COSMOSData/lineflux_view.txt'
 
 #Folder to save the figures
-figout = '/Users/blorenz/COSMOS/COSMOSData/fitEmissionOut/'
+figout = '/Users/blorenz/COSMOS/COSMOSData/fitEmission_usig/'
 
 #The location with the file for all of our data
 ourdatapath = '/Users/blorenz/COSMOS/COSMOSData/all_c_hasinger.txt'
@@ -29,7 +29,8 @@ ourdatapath = '/Users/blorenz/COSMOS/COSMOSData/all_c_hasinger.txt'
 caldatapath = '/Users/blorenz/COSMOS/COSMOSData/flxFitsFileOut/'
 #File for all of the emission/absorption features of the galaxy (to mask out other features when fitting)
 linedata = '/Users/blorenz/COSMOS/COSMOSData/corFitsFileOut/galaxylines.dat'
-
+#File for the MAD of the difference in flux of duplicates in each line (to flag low S/N lines)
+maddatapath = '/Users/blorenz/COSMOS/COSMOSData/linemad.txt'
 
 #Read in the spectral lines for masking
 gallines = ascii.read(linedata).to_pandas()
@@ -37,6 +38,13 @@ gallines = ascii.read(linedata).to_pandas()
 gallines = gallines[gallines.col2==1]
 gallines = gallines.reset_index()
 
+usigchi2 = sys.argv[3]
+
+if usigchi2:
+    figout = '/Users/blorenz/COSMOS/COSMOSData/fitEmission_usigchi2/'
+
+#Read in the mad of the lines 
+maddata = ascii.read(maddatapath).to_pandas()
 
 #Read the datafile (if there is one), then create a blank one to write to:
 if os.path.exists(dataout):
@@ -85,16 +93,27 @@ def getMask(modelspec,sigspec,spectrum):
 #objs[2] - number
 objs = [(i[4:10],i[17],i[15]) for i in ourdata.ImageName]
 
-#Start two counters to run along the plot
+
+#Start counters to run along the plot
 plt1 = 0
 plt10 = 0
 plt1b = 0
 plt10b = 0
+plt1c = 0
+plt10c = 0
+plt1d = 0
+plt10d = 0
+plt1e = 0
+plt10e = 0
 #Set the gridsize, so 12 means a 12x12 grid
 gridsize = 12
 #Start the plot before the loop:
-fig,axarr = plt.subplots(gridsize,gridsize,figsize = (150,80))
-figb,axarrb = plt.subplots(gridsize,gridsize,figsize = (150,80))
+figmin,figmax = (150,80)
+fig,axarr = plt.subplots(gridsize,gridsize,figsize = (figmin,figmax))
+figb,axarrb = plt.subplots(gridsize,gridsize,figsize = (figmin,figmax))
+figc,axarrc = plt.subplots(gridsize,gridsize,figsize = (figmin,figmax))
+figd,axarrd = plt.subplots(gridsize,gridsize,figsize = (figmin,figmax))
+fige,axarre = plt.subplots(gridsize,gridsize,figsize = (figmin,figmax))
 
 #Loop the fitting over all objects
 #for i in range(16,20):
@@ -367,7 +386,6 @@ for i in range(len(objs)):
                             chiub = mu3+2*stddev3
                             #Get only the indices in that region
                             cidx = np.logical_and(dropwaveline > chilb-2, dropwaveline < chiub+2)
-                            cidx[np.where(dropspecline[cidx]<=0)[0]] = ~cidx[np.where(dropspecline[cidx]<=0)[0]]
                             arrchi2 = divz((dropspecline[cidx]-gausscurve3[cidx]),dropnoiseline[cidx])**2
                             chi2 = np.add.reduce(arrchi2)
                             rchi2 = divz(chi2,len(dropwaveline[cidx])-dof)
@@ -431,7 +449,9 @@ for i in range(len(objs)):
                         #Check if the width of the line hit the bounds
                         elif (stddev3 > 7.0):
                             fitflag = 2 #Marks bad sigma
-                    
+                        #Check if the scale got significantly shifted, like means bad data
+                        elif ((scale3 < 0.7) or (scale3 > 1.3)):
+                            fitflag = 4 #Marks strange scaling
 
                         #Check the flag for each line when fitting HaNII
                         if HaNII:
@@ -445,11 +465,15 @@ for i in range(len(objs)):
                                     HaNIIdat.at[num,'flag'] = 0
                                     
                                 
-                        def mkplot(plt10,plt1,plt10b,plt1b,gridsize):
+                        def mkplot(plt10,plt1,plt10b,plt1b,plt10c,plt1c,plt10d,plt1d,plt10e,plt1e,gridsize,usigrat,usigchi2):
                             #Create the plot    
                             #fig,ax0 = plt.subplots(figsize = (13,7))
-                            
                             #Set the axis to the correct number - check if it is flagged or not
+                            if usigchi2:
+                                alim,blim,clim = 10,5,3
+                            else:
+                                alim,blim,clim = 10,5,3
+                                
                             if fitflag:
                                 ax0 = axarrb[plt10b,plt1b]
                                 #Increment the counters for next time
@@ -457,13 +481,34 @@ for i in range(len(objs)):
                                 if plt1b == gridsize:
                                     plt1b = 0
                                     plt10b = plt10b + 1
-                            else:
+                            elif (usigrat > alim):
                                 ax0 = axarr[plt10,plt1]
                                 #Increment the counters for next time
                                 plt1 = plt1 + 1
                                 if plt1 == gridsize:
                                     plt1 = 0
                                     plt10 = plt10 + 1
+                            elif ((usigrat > blim) and (usigrat < alim)):
+                                ax0 = axarrc[plt10c,plt1c]
+                                #Increment the counters for next time
+                                plt1c = plt1c + 1
+                                if plt1c == gridsize:
+                                    plt1c = 0
+                                    plt10c = plt10c + 1
+                            elif ((usigrat > clim) and (usigrat < blim)):
+                                ax0 = axarrd[plt10d,plt1d]
+                                #Increment the counters for next time
+                                plt1d = plt1d + 1
+                                if plt1d == gridsize:
+                                    plt1d = 0
+                                    plt10d = plt10d + 1
+                            elif (usigrat < clim):
+                                ax0 = axarre[plt10e,plt1e]
+                                #Increment the counters for next time
+                                plt1e = plt1e + 1
+                                if plt1e == gridsize:
+                                    plt1e = 0
+                                    plt10e = plt10e + 1
                             
                             #Plotting
                             ax0.plot(waveline,specline,color='cornflowerblue',label='Spectrum')
@@ -481,8 +526,7 @@ for i in range(len(objs)):
                                 ax0.axvspan(np.min(dropwaveline[cidx]),np.max(dropwaveline[cidx]), color='grey', alpha=0.2, label='chi2 region')
                             else:
                                 [ax0.axvspan(np.min(dropwaveline[cidxarr[num]]),np.max(dropwaveline[cidxarr[num]]), color='grey', alpha=0.2, label='chi2 region') for num in np.arange(0,3)]
-                            ax0.plot(waveline,modelline*scale3,color='red',label='Model')
-                            ax0.plot(waveline,modelline,color='red',ls='--')
+                            ax0.plot(waveline,modelline,color='red',label='Model')
                             #ax0.plot(dropwaveline,guesscurve3,color='orange',label='Initial Guess')
                             ax0.plot(dropwaveline,dropnoiseline,color='orange',label='Noise')
                             #Titles, axes, legends
@@ -491,12 +535,15 @@ for i in range(len(objs)):
                             ax0.set_xlabel('Wavelength ($\AA$)',fontsize = axisfont)
                             ax0.set_ylabel('Flux ($10^{-17}$ erg/s/${cm}^2/\AA$)',fontsize = axisfont)
                             ax0.tick_params(labelsize = ticksize)
-                            return ax0, plt10, plt1, plt10b, plt1b
+                            return ax0, plt10, plt1, plt10b, plt1b,plt10c,plt1c,plt10d,plt1d,plt10e,plt1e
 
                         
-                        usigrat = divz(flux3,(usig*np.sqrt(rchi2)))
-
-                        ax0,plt10,plt1,plt10b,plt1b = mkplot(plt10,plt1,plt10b,plt1b,gridsize)
+                            
+                        if usigchi2:
+                            usigrat = divz(flux3,(usig*np.sqrt(rchi2)))
+                        else:
+                            usigrat = divz(flux3,usig)
+                        ax0,plt10,plt1,plt10b,plt1b,plt10c,plt1c,plt10d,plt1d,plt10e,plt1e = mkplot(plt10,plt1,plt10b,plt1b,plt10c,plt1c,plt10d,plt1d,plt10e,plt1e,gridsize,usigrat,usigchi2)
                         if not HaNII:
                             ax0.text(0.02,0.95,'Mean:       ' + str(round(mu3,2)),fontsize = textfont, transform=ax0.transAxes)      
                             ax0.text(0.02,0.90,'Std Dev:   ' + str(round(stddev3,2)),fontsize = textfont, transform=ax0.transAxes)
@@ -507,7 +554,7 @@ for i in range(len(objs)):
                             ax0.text(0.02,0.65,'rChi2:       ' + str(round(rchi2,2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.60,'wsig:        ' + str(round(wsig,3)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.55,'usig:         ' + str(round(usig,3)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.50,'usigrat:     ' + str(round(usigrat,3)),fontsize = textfont, transform=ax0.transAxes)
+                            ax0.text(0.02,0.50, 'usigrat: ' + str(round(usigrat,2)),fontsize = textfont, transform=ax0.transAxes)
                         else:
                             ax0.text(0.02,0.95,'Mean:    ' + str(round(HaNIIdat.iloc[0]['mu'],2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.24,0.95, str(round(HaNIIdat.iloc[1]['mu'],2)),fontsize = textfont, transform=ax0.transAxes)
@@ -525,6 +572,7 @@ for i in range(len(objs)):
                             ax0.text(0.02,0.70, 'zfit:   ' + str(round(zgauss,4)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.65, 'chi2tot: ' + str(round(chi2tot,2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.60, 'rchi2tot: ' + str(round(rchi2tot,2)),fontsize = textfont, transform=ax0.transAxes)
+                            ax0.text(0.02,0.50, 'usigrat: ' + str(round(usigrat,2)),fontsize = textfont, transform=ax0.transAxes)
                             
                         
                         if fitflag:
@@ -624,18 +672,35 @@ outarr = outarr.fillna(value = -99.999999999999)
 #outarr = outarr.drop('Ha_chi2',axis=1)
 
 #Write the file
-outarr.to_csv(dataout,index=False)
+#outarr.to_csv(dataout,index=False)
 
 
 #Save the figure
 #plt.show()
 fig.tight_layout()
 figb.tight_layout()
+figc.tight_layout()
+figd.tight_layout()
+fige.tight_layout()
 if HaNII: linename = 'HaNII'
-fig.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '.pdf')
-figb.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_flagged.pdf')
+#if not usigchi2:
+if 1==1:
+    fig.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_10sig.pdf')
+    figc.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_5_10sig.pdf')
+    figd.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_3_5sig.pdf')
+    fige.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_0sig.pdf')
+    figb.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_flagged.pdf')
+else:
+    fig.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_5sig.pdf')
+    figc.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_3_5sig.pdf')
+    figd.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_1_3sig.pdf')
+    fige.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_0sig.pdf')
+    figb.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_flagged.pdf')
 plt.close(fig)
 plt.close(figb)
+plt.close(figc)
+plt.close(figd)
+plt.close(fige)
                         
 
 

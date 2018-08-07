@@ -43,36 +43,33 @@ lines = ['4861','4959','5007','6563']#'6548','6583']
 minlim= 0.005
 maxlim= 100
 
-#Filter to get the good and back liens
+#Filter to get the good and bad lines
 flagidx =(fluxdata['4861_flag']==0)
 goodflux = fluxdata[flagidx]
 badflux = fluxdata[np.logical_not(flagidx)]
+#Find the duplicates form the good lines
 dupids = [item for item, count in collections.Counter(goodflux['OBJID']).items() if count > 1]
 dupobjsarr = []
 hbflux1 = []
 hbflux2 = []
 for obj in dupids:
+    #Append the data for every duplicate object
     dupobjsarr.append(fluxdata[fluxdata.OBJID == obj])
 for i in range(0,len(dupobjsarr)):
+    #Append the scaled flux for each of the duplicate objects
     hbflux1.append(divz(dupobjsarr[i].iloc[0]['4861_flux'],dupobjsarr[i].iloc[0]['4861_scale']))
     hbflux2.append(divz(dupobjsarr[i].iloc[1]['4861_flux'],dupobjsarr[i].iloc[1]['4861_scale']))
 
-dupidsb = [item for item, count in collections.Counter(badflux['OBJID']).items() if count > 1]
-dupobjsarrb = []
-hbflux1b = []
-hbflux2b = []
-for obj in dupidsb:
-    dupobjsarrb.append(fluxdata[fluxdata.OBJID == obj])
-for i in range(0,len(dupobjsarrb)):
-    hbflux1b.append(divz(dupobjsarrb[i].iloc[0]['4861_flux'],dupobjsarrb[i].iloc[0]['4861_scale']))
-    hbflux2b.append(divz(dupobjsarrb[i].iloc[1]['4861_flux'],dupobjsarrb[i].iloc[1]['4861_scale']))
-
+#Plotting values
 lw=0.25
 mark='.'
 
+#Create the figure
 fig,ax = plt.subplots(figsize=(8,7))
+#Plot the good and bad data
 ax.scatter(hbflux1,hbflux2,color='blue',marker=mark,label='Galaxy with good fit')
 ax.scatter(hbflux1b,hbflux2b,color='red',marker=mark,label='Galaxy with bad fit')
+#Plot a unity line
 ax.plot((0,1000),(0,1000),color='black',ls='--')
 
 #Titles, axes, legends

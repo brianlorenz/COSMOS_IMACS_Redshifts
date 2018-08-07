@@ -17,7 +17,7 @@ from scipy.signal import medfilt
 from scipy.optimize import curve_fit,nnls
 
 #Location of output data file
-dataout = '/Users/blorenz/COSMOS/COSMOSData/lineflux.txt'
+dataout = '/Users/blorenz/COSMOS/COSMOSData/lineflux_tot.txt'
 viewdataout = '/Users/blorenz/COSMOS/COSMOSData/lineflux_view.txt'
 
 #Folder to save the figures
@@ -38,8 +38,6 @@ gallines = ascii.read(linedata).to_pandas()
 gallines = gallines[gallines.col2==1]
 gallines = gallines.reset_index()
 
-#Read in the mad of the lines 
-maddata = ascii.read(maddatapath).to_pandas()
 
 #Read the datafile (if there is one), then create a blank one to write to:
 if os.path.exists(dataout):
@@ -433,9 +431,7 @@ for i in range(len(objs)):
                         #Check if the width of the line hit the bounds
                         elif (stddev3 > 7.0):
                             fitflag = 2 #Marks bad sigma
-                        #Check if the scale got significantly shifted, like means bad data
-                        elif ((scale3 < 0.7) or (scale3 > 1.3)):
-                            fitflag = 4 #Marks strange scaling
+                       
 
                         #Check the flag for each line when fitting HaNII
                         if HaNII:
@@ -443,8 +439,6 @@ for i in range(len(objs)):
                                 if fitflag == 1: HaNIIdat.at[num,'flag'] = 1
                                 elif (HaNIIdat.iloc[num]['sig'] > 7.0):
                                     HaNIIdat.at[num,'flag'] = 2
-                                elif ((HaNIIdat.iloc[num]['scale'] < 0.7) or (HaNIIdat.iloc[num]['scale'] > 1.3)):
-                                    HaNIIdat.at[num,'flag'] = 4
                                 else:
                                     HaNIIdat.at[num,'flag'] = 0
                                     
@@ -485,7 +479,8 @@ for i in range(len(objs)):
                                 ax0.axvspan(np.min(dropwaveline[cidx]),np.max(dropwaveline[cidx]), color='grey', alpha=0.2, label='chi2 region')
                             else:
                                 [ax0.axvspan(np.min(dropwaveline[cidxarr[num]]),np.max(dropwaveline[cidxarr[num]]), color='grey', alpha=0.2, label='chi2 region') for num in np.arange(0,3)]
-                            ax0.plot(waveline,modelline,color='red',label='Model')
+                            ax0.plot(waveline,modelline*scale3,color='red',label='Model')
+                            ax0.plot(waveline,modelline,color='red',ls='--')
                             #ax0.plot(dropwaveline,guesscurve3,color='orange',label='Initial Guess')
                             ax0.plot(dropwaveline,dropnoiseline,color='orange',label='Noise')
                             #Titles, axes, legends

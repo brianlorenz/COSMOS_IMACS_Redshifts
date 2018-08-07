@@ -41,7 +41,7 @@ def Calzetti(wave,Av,Rv):
     if ((waveum < 0.63) and (waveum >= 0.12)):
         k = 2.659*(-2.156+divz(1.509,waveum)-divz(0.198,waveum**2)+divz(0.011,waveum**3))+Rv
     F_rat = 10**(divz(-0.4*k*Av,Rv))
-    return np.log10(F_rat)
+    return F_rat
 
 def Cardelli(wave,Av,Rv):
     waveum = wave*.0001
@@ -56,10 +56,29 @@ def Cardelli(wave,Av,Rv):
         b = 1.41338*y+2.28305*y**2+1.07233*y**3-5.38434*y**4-0.62251*y**5+5.30260*y**6-2.09002*y**7
         k = Rv*a+b
     F_rat = 10**(divz(-0.4*k*Av,Rv))
-    return np.log10(F_rat)
+    return F_rat
 
+'''
+def Calzetti2(l,Rv=4.05):
+    x = 1e4/l
+    ue1 = np.logical_and((l>=6300),(l<=22000))
+    ue2 = np.logical_and((l>=912),(l<=6300))
+    ke1 = 2.659*(-1.857 + 1.040*x) + Rv
+    ke2 = 2.659*(np.dot([-2.156, 1.509, -0.198, 0.011],[1,x,x**2,x**3])) + Rv
+    ke = np.where(ue1,ke1,np.where(ue2,ke2,0))/Rv
+    return ke
+
+def Calzetti3(wave,Rv):
+    waveum = wave*.0001
+    if ((waveum >= 0.63) and (waveum <= 2.2)):
+        k = 2.659*(-1.857+divz(1.040,waveum))+Rv
+    if ((waveum < 0.63) and (waveum >= 0.12)):
+        k = 2.659*(-2.156+divz(1.509,waveum)-divz(0.198,waveum**2)+divz(0.011,waveum**3))+Rv
+    return k/Rv
+'''
 
 fig,ax = plt.subplots(figsize=(8,7))
+
 
 Av=1
 wavelengths = np.arange(3800,7002,2)
@@ -78,18 +97,34 @@ for Rv in Rvs:
 lw=0.25
 mark='.'
 
+'''
+fig2,ax2 = plt.subplots(figsize=(8,7))
+cal2 = [Calzetti2(i,4.05) for i in wavelengths]
+cal3 = [Calzetti3(i,4.05) for i in wavelengths]
+ax2.plot(wavelengths,cal2,color=colors[0],label='Dan',ls='--')
+ax2.plot(wavelengths,cal3,color=colors[1],label='Brian',alpha=0.6)
+ax2.set_ylabel('k')
+ax2.set_xlabel('Wavelength ($\AA$)')
+ax2.legend()
+'''
 
 legcolor = 'grey'
 legend_elements = [Line2D([0], [0],ls=lss[0],color=legcolor, label='Rv = 3.25'),Line2D([0], [0],color=legcolor,ls=lss[1], label='Rv = 4.05'),Line2D([0], [0],ls=lss[2],color=legcolor, label='Rv = 4.85'),Line2D([0], [0],color=colors[0], label='Calzetti'),Line2D([0], [0],color=colors[1], label='Cardelli'),]
 
-ax.legend(handles=legend_elements, fontsize=legendfont)
+ax.legend(handles=legend_elements, fontsize=legendfont, loc=2)
+ax.plot((6562.8,6562.8),(-100,100),color='black',ls='--')
+ax.plot((4861.3,4861.3),(-100,100),color='black',ls='--')
+ax.plot((4340.5,4340.5),(-100,100),color='black',ls='--')
+ax.text(0.865,0.02,'Av = 1',fontsize = axisfont-2, transform=ax.transAxes)
+ax.set_ylim(0.2,0.6)
+ax.set_xlim(3800,7000)
+
 
 
 #Titles, axes, legends
-ax.set_title('Reddening Laws, Av=' + str(Av),fontsize = titlefont)
-ax.set_xlabel('Wavelength ($\AA$)',fontsize = axisfont)
-ax.set_ylabel('log10(Flux Transmitted)',fontsize = axisfont)
+#ax.set_title('Reddening Laws, Av=' + str(Av),fontsize = titlefont)
+ax.set_xlabel('Rest Wavelength ($\AA$)',fontsize = axisfont)
+ax.set_ylabel('Flux Transmitted',fontsize = axisfont)
 ax.tick_params(labelsize = ticksize)
-plt.show()
 fig.savefig(figout + 'Redlaws.pdf')
 plt.close(fig)

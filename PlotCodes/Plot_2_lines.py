@@ -75,8 +75,8 @@ mark='.'
 ms=6
 
 fig,ax = plt.subplots(figsize=(8,7))
-ax.errorbar(xdatalow,ydatalow,xerr,yerr,ls='None',lw=lw,ms=ms,color='grey',marker=mark)
-ax.errorbar(xdata,ydata,xerr,yerr,ls='None',lw=lw,color='blue',ms=ms,marker=mark)
+ax.errorbar(xdatalow,ydatalow,xerr=xerr,yerr=yerr,ls='None',lw=lw,ms=ms,color='grey',marker=mark)
+ax.errorbar(xdata,ydata,xerr=xerr,yerr=yerr,ls='None',lw=lw,color='blue',ms=ms,marker=mark)
 
 ax.plot((0,1000),(0,1000),color='black',ls='--')
 
