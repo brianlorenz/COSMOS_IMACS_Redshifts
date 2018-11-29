@@ -40,26 +40,25 @@ mark = 'o'
 mark2 = 'o'
 marks = 4.0
 mark2s = 4.0
-c1 = 'C0'
-c2 = 'gold'
+c1 = 'blue'
+c2 = 'red'
 a2 = 1
 
 fig,ax = plt.subplots(figsize=(8,7))
-ax.plot(total.z_peak,total.LMASS,color=c2,markersize = mark2s,marker=mark2,ls='None',alpha=a2)
+ax.plot(total.z_peak,total.LMASS,color=c2,markersize = mark2s,marker=mark2,ls='None',alpha=a2,mfc='None')
 for i in range(0,len(ourdata)):
     plotobj = total[total.ID == ourdata.iloc[i]['OBJID']]
     ax.plot(plotobj.z_peak,plotobj.LMASS,color=c1,markersize = marks,marker=mark,ls='None')
 
 h1, = ax.plot((0,1000),(0,1000),color=c1,marker=mark,ls='None',markersize = marks)
-h2, = ax.plot((0,1000),(0,1000),color=c2,marker=mark2,ls='None',markersize = mark2s,alpha=a2)
+h2, = ax.plot((0,1000),(0,1000),color=c2,marker=mark2,ls='None',markersize = mark2s,alpha=a2,mfc='None')
 
 #Titles, axes, legends
 #ax.set_title('',fontsize = titlefont)
 ax.legend(bbox_to_anchor=(0.6, 1.165),handles=[h1,h2],labels=['Sampled','Catalog'],fontsize = legendfont)
 ax.set_xlabel('Photometric Redshift',fontsize = axisfont)
-ax.set_ylabel('Log(Stellar Mass ($M_{sun}$)) ',fontsize = axisfont)
+ax.set_ylabel('log(Stellar Mass) (M$_\odot)$',fontsize = axisfont)
 ax.set_xlim(0.295,0.405)
 ax.set_ylim(8.95,10.05)
 ax.tick_params(labelsize = ticksize)
-plt.show()
 fig.savefig(figout + 'muzzin_sample_plot.pdf')

@@ -15,6 +15,9 @@ figout = '/Users/blorenz/COSMOS/Reports/2018/Images/'
 #The location with the file for all of our data
 fluxdatapath = '/Users/blorenz/COSMOS/COSMOSData/lineflux_red.txt'
 
+#The location with the file for all of our data
+sfout = '/Users/blorenz/COSMOS/COSMOSData/sfrs.txt'
+
 #Location of the equivalent width data
 ewdata = '/Users/blorenz/COSMOS/COSMOSData/lineew.txt'
 #Read in the ew of the lines 
@@ -70,74 +73,23 @@ textfont = 16
 def divz(X,Y):
         return X/np.where(Y,Y,Y+1)*np.not_equal(Y,0)
 
-err = err_dfred['6563_fix_u']
-errSFR = err*10**-17*4*np.pi*((cosmo.luminosity_distance(fluxdata['zcc'])*3.086*10**24)**2)*10**-41.27
-Halum = fluxdata['6563_fix_flux_red']*10**-17*4*np.pi*((cosmo.luminosity_distance(fluxdata['zcc'])*3.086*10**24)**2)*(fluxdata.Ks_tot/fluxdata.Ks)
-fluxdata['SFR'] = Halum*10**-41.27 #Kennicutt and Evans (2012)
-fluxdata['SFR'] = fluxdata['SFR'].astype(float)
+
+lines = ['6563_fix']
 
 
-lines=['6563_fix']
+sfr_df = pd.DataFrame()
+sfr_df['fluxfile'] = fluxdata['fluxfile']
 
-#Filter the data
-goodlines = [dataqual[line+'_good'].map(d) for line in lines]
-#Needs to be good in all lines to be good
-allgood = np.logical_and.reduce(goodlines)
-#Needs to be bad in any line to be bad
-badlines = [dataqual[line+'_bad'].map(d) for line in lines]
-baddata = np.logical_or.reduce(badlines)
-lowlines = [dataqual[line+'_low'].map(d) for line in lines]
-#Needs to be low in any line to be low, and also not bad in a line
-somelow = np.logical_and(np.logical_or.reduce(lowlines),np.logical_not(baddata))
+sfr_df['sfr_err_u'] = err_dfred['6563_fix_u']*1e-17*4*np.pi*((cosmo.luminosity_distance(fluxdata['zcc'])*3.086*1e24)**2)*10**(-41.27)*(fluxdata.Ks_tot/fluxdata.Ks)
+sfr_df['ssfr_err_u'] = divz(sfr_df['sfr_err_u'],10**fluxdata.LMASS)
 
+sfr_df['sfr_err_d'] = err_dfred['6563_fix_d']*1e-17*4*np.pi*((cosmo.luminosity_distance(fluxdata['zcc'])*3.086*1e24)**2)*10**(-41.27)*(fluxdata.Ks_tot/fluxdata.Ks)
+sfr_df['ssfr_err_d'] = divz(sfr_df['sfr_err_d'],10**fluxdata.LMASS)
 
-combinemass = 1
+sfr_df['SFR'] = fluxdata['6563_fix_flux_red']*1e-17*4*np.pi*((cosmo.luminosity_distance(fluxdata['zcc'])*3.086*1e24)**2)*(fluxdata.Ks_tot/fluxdata.Ks)*10**(-41.27) #Kennicutt and Evans (2012)
+ 
+sfr_df['SFR'] = sfr_df['SFR'].astype(float)
+sfr_df['sSFR'] = divz(sfr_df['SFR'],10**fluxdata['LMASS'])
 
 
-
-filtSFR = fluxdata['SFR']<10000000
-
-ms=12
-lwbw=2
-
-notbad = np.logical_not(baddata)
-
-ssfr = 1
-
-fig,axarr = plt.subplots(1,3,figsize=(24,7),sharex=True,sharey=True)
-c=0
-
-for ax in axarr:
-    if c in [0,3]:
-        col = 'good'
-        filt = allgood
-        color='blue'
-    elif c in [1,4]:
-        col = 'low'
-        filt = somelow
-        color='orange'
-    else:
-        col = 'bad'
-        filt = baddata
-        color='red'
-    filt = np.logical_and(filt,filtSFR)
-    xdata = fluxdata[filt]['LMASS']
-    ydata = np.log10(fluxdata[filt]['SFR'])
-    yerr = 1/np.log(10)*(errSFR[filt].astype(float)/fluxdata[filt]['SFR'])
-    ax.set_xlabel('log(Stellar Mass) (M$_{sun})$',fontsize = axisfont)
-    ax.set_ylabel('log(SFR) (M$_{sun})$/yr)',fontsize = axisfont)
-    if ssfr:
-        ydata = np.log10(divz(10**ydata,10**fluxdata[filt]['LMASS']))
-        ax.set_ylabel('log(sSFR) (yr$^{-1}$)',fontsize = axisfont)
-    ax.errorbar(xdata,ydata,yerr=yerr,color=color,marker='o',ms=4,lw=0.5,ls='None')
-    ax.tick_params(labelsize = ticksize, size=ticks)
-    ax.set_xlim(8.95,10.05)
-    ax.set_ylim(-3,1.6)
-    if ssfr:
-        ax.set_ylim(-12,-8)
-    c=c+1
-
-fig.tight_layout()
-if ssfr: fig.savefig(figout + 'sSFR_Mass.pdf')
-else: fig.savefig(figout + 'SFR_Mass.pdf')
-plt.close(fig)
+sfr_df.to_csv(sfout,index=False)

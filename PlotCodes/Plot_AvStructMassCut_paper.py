@@ -188,8 +188,10 @@ for ax in axarr:
                 ax.errorbar(fluxdata[filters][below]['av'],fluxdata[filters][below][plotdata],xerr=fluxdata[filters][below]['dav1'],color=colorcut2,marker='o',ms=4,lw=0.5,ls='None',label=propname+'<'+str(cut))
                 medsabove = [np.median(fluxdata[filters][np.logical_and(above,g)].av) for g in [mr1,mr2,mr3,mr4]]
                 medsbelow = [np.median(fluxdata[filters][np.logical_and(below,g)].av) for g in [mr1,mr2,mr3,mr4]]
-                emedsabove = [np.std(fluxdata[filters][np.logical_and(above,g)].av) for g in [mr1,mr2,mr3,mr4]]
-                emedsbelow = [np.std(fluxdata[filters][np.logical_and(below,g)].av) for g in [mr1,mr2,mr3,mr4]]
+                #emedsabove = [np.std(fluxdata[filters][np.logical_and(above,g)].av) for g in [mr1,mr2,mr3,mr4]]
+                emedsabove = 1.49*np.array([np.median(np.abs(fluxdata[filters][np.logical_and(above,g)].av-np.median(fluxdata[filters][np.logical_and(above,g)].av))) for g in [mr1,mr2,mr3,mr4]])
+                emedsabove = 1.49*np.array([np.median(np.abs(fluxdata[filters][np.logical_and(below,g)].av-np.median(fluxdata[filters][np.logical_and(below,g)].av))) for g in [mr1,mr2,mr3,mr4]])
+                #emedsbelow = [np.std(fluxdata[filters][np.logical_and(below,g)].av) for g in [mr1,mr2,mr3,mr4]]
                 ax.legend(fontsize=axisfont-6,loc=4)
                 s = 12
                 ax.errorbar(medsabove,[s1,s2,s3,s4],xerr=emedsabove,label='Median ' + propname + ' > ' + str(cut),ms=s,ls='None',marker='x',zorder=10**10, markerfacecolor='None', markeredgecolor=colormed1,mew=4)

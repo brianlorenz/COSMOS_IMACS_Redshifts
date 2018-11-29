@@ -32,13 +32,13 @@ exptime = head['exptime']
 wavelength = (1.0+np.arange(naxis1)-crpix1)*cdelt1 + crval1
 
 
-fig,axarr = plt.subplots(3,3,figsize=(13,7))
-ax0,ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8 = axarr[0,0],axarr[0,1],axarr[0,2],axarr[1,0],axarr[1,1],axarr[1,2],axarr[2,0],axarr[2,1],axarr[2,2]
-ax0.plot(wavelength,data[0])
-ax1.plot(wavelength,data[1])
-ax2.plot(wavelength,data[2])
-ax3.plot(wavelength,data[3])
-ax4.plot(wavelength,data[4])
+fig,axarr = plt.subplots(figsize=(13,7))
+#ax0,ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8 = axarr[0,0],axarr[0,1],axarr[0,2],axarr[1,0],axarr[1,1],axarr[1,2],axarr[2,0],axarr[2,1],axarr[2,2]
+axarr.plot(wavelength,data[0])
+#ax1.plot(wavelength,data[1])
+#ax2.plot(wavelength,data[2])
+#ax3.plot(wavelength,data[3])
+#ax4.plot(wavelength,data[4])
 #ax5.plot(wavelength,data[5])
 #ax6.plot(wavelength,data[6])
 #ax7.plot(wavelength,data[7])

@@ -81,10 +81,10 @@ for i in range(0,len(fluxdata)):
                 lb = mean-2*stddev
                 ub = mean+2*stddev
                 #Get only the indices in that region
-                idx = np.logical_and(wavelength > lb-2, wavelength < ub+2)
-                idx = np.logical_and(idx,nonzeroidx)
-                if len(spec[idx] > 4):
-                        ratio = divz(spec[idx],model[idx])
+                idx = np.logical_and((wavelength > lb-2), (wavelength < ub+2))
+                idxnz = np.logical_and(idx,nonzeroidx)
+                if (len(spec[idxnz]) > 4):
+                        ratio = divz(spec[idxnz],model[idxnz])
                         lineew = np.abs(np.sum(1-ratio))
                 else: lineew = -99.999999999
                 #Now get the model ew
@@ -94,10 +94,10 @@ for i in range(0,len(fluxdata)):
                 lineidxright = np.logical_and(wavelength<(linez+50),wavelength>(linez+20))
                 #All indices except the line
                 lineidx = np.logical_or(lineidxleft,lineidxright)
-                lineidx = np.logical_and(lineidx,nonzeroidx)
                 #Model continuum
-                modelcont = np.median(model[lineidx])
-                modelcont = np.nan_to_num(modelcont)
+                if mean<0:
+                        idx = np.logical_and((wavelength > linez-2*stddev-2), (wavelength < linez+2*stddev+2))
+                modelcont = np.median((model[lineidx]))
                 if (modelcont != 0):
                         ratiom = divz(model[idx],modelcont)
                         modelew = np.abs(np.sum(1-ratiom))
@@ -117,6 +117,5 @@ ew_df.to_csv(dataout,index=False)
 err_df=pd.DataFrame()
 err_df['fluxfile'] = fluxdata['fluxfile']
 for line in lines:
-    err = np.sqrt(fluxdata[line+'_usig']**2+(0.25*ew_df[line+'_modelabs'])**2)
-    err_df[line] = err
+    err_df[line] = np.sqrt(fluxdata[line+'_usig']**2+(0.25*ew_df[line+'_modelabs'])**2)
 err_df.to_csv(errout,index=False)

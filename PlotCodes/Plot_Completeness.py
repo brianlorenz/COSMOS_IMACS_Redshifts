@@ -1,4 +1,4 @@
-#Creates a UVJ diagram split by good, low, and bad measurements for specified lines
+#Examines 24um flux for our objects to investigate the location of dust
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii
@@ -31,11 +31,15 @@ errdatapath = '/Users/blorenz/COSMOS/COSMOSData/errs.txt'
 #Read in the scale of the lines 
 err_df = ascii.read(errdatapath,data_start=1,header_start=0,format='csv').to_pandas()
 
+#Read all of the data
+alldatapath = '/Users/blorenz/COSMOS/COSMOSData/all_c_hasinger.txt'
+alldata = ascii.read(alldatapath).to_pandas()
 
-#File with the error array
-errreddatapath = '/Users/blorenz/COSMOS/COSMOSData/errs_red.txt'
-#Read in the scale of the lines 
-err_dfred = ascii.read(errreddatapath,data_start=1,header_start=0,format='csv').to_pandas()
+#Read the muzzin sfrs
+muzdatapath = '/Users/blorenz/COSMOS/muzzin_data/UVISTA_final_colors_sfrs_v4.1.dat'
+muzdata = ascii.read(muzdatapath).to_pandas()
+
+alldata = pd.merge(alldata,muzdata,left_on='id',right_on='ID')
 
 #Read the datafile:
 fluxdata = ascii.read(fluxdatapath).to_pandas()
@@ -46,6 +50,7 @@ spropdatapath = '/Users/blorenz/COSMOS/COSMOSData/struct_prop.txt'
 sprop_df = ascii.read(spropdatapath).to_pandas()
 sprop_df = sprop_df.rename(columns={'id':'OBJID'})
 fluxdata = pd.merge(fluxdata,sprop_df)
+
 
 #Fontsizes for plotting
 axisfont = 24
@@ -58,13 +63,6 @@ textfont = 16
 #Division function
 def divz(X,Y):
         return X/np.where(Y,Y,Y+1)*np.not_equal(Y,0)
-
-err = err_dfred['6563_fix_u']
-errSFR = err*10**-17*4*np.pi*((cosmo.luminosity_distance(fluxdata['zcc'])*3.086*10**24)**2)*10**-41.27
-Halum = fluxdata['6563_fix_flux_red']*10**-17*4*np.pi*((cosmo.luminosity_distance(fluxdata['zcc'])*3.086*10**24)**2)
-fluxdata['SFR'] = Halum*10**-41.27 #Kennicutt and Evans (2012)
-fluxdata['SFR'] = fluxdata['SFR'].astype(float)
-
 
 lines=['6563_fix']
 
@@ -80,59 +78,56 @@ lowlines = [dataqual[line+'_low'].map(d) for line in lines]
 somelow = np.logical_and(np.logical_or.reduce(lowlines),np.logical_not(baddata))
 
 
-combinemass = 1
+
+#Plot the data with error bars
+#Counter
+c = 0
+ylabel = ''
+
+fluxids = []
+for i in range(0,len(fluxdata)):
+    fluxids.append(fluxdata.fluxfile.iloc[i][4:])
+
+for string in fluxids:
+    alldata.drop(alldata[alldata.ImageName == 'cor_'+string].index[0],inplace=True)
+nostar = (alldata.Star==0)
+    
 
 
-
-filtSFR = fluxdata['SFR']<10000000
-
-ms=12
+ms=6
 lwbw=2
 
 notbad = np.logical_not(baddata)
 
-ssfr = 1
+paper = 1
 
-fig,ax = plt.subplots(figsize=(8,7))
+if not paper:
+    fig = plt.figure(figsize = (15,7))
+    ax = fig.add_axes((0.15,0.15,0.42,0.8))
+else:
+    fig,ax = plt.subplots(figsize=(8,7))
+
+    
 c=0
-
-for w in range(0,2):
-    if c in [0,3]:
-        col = 'good'
-        filt = allgood
-        color='blue'
-    elif c in [1,4]:
-        col = 'low'
-        filt = somelow
-        color='orange'
-    else:
-        col = 'bad'
-        filt = baddata
-        color='red'
-    filt = np.logical_and(filt,filtSFR)
-    xdata = fluxdata[filt]['LMASS']
-    ydata = np.log10(fluxdata[filt]['SFR'])
-    #yerr = 1/np.log(10)*(errSFR[filt].astype(float)/fluxdata[filt]['SFR'])
-    ax.set_xlabel('log(Stellar Mass) (M$_{sun})$',fontsize = axisfont)
-    ax.set_ylabel('log(SFR) (M$_{sun})$/yr)',fontsize = axisfont)
-    if ssfr:
-        ydata = np.log10(divz(10**ydata,10**fluxdata[filt]['LMASS']))
-        ax.set_ylabel('log(sSFR) (yr$^{-1}$)',fontsize = axisfont)
-        if c==0:
-            coeff = np.polyfit(xdata,ydata,1)
-            x = np.arange(9,10,0.001)
-            fit = coeff[0]*x+coeff[1]
-            ax.plot(x,fit,c='red',lw=4)
-            ax.text(0.665,0.93,'Slope: ' + str(np.round(coeff[0],2)),fontsize = axisfont, transform=ax.transAxes)
-    ax.plot(xdata,ydata,color=color,marker='o',ms=4,lw=0.5,ls='None')
-    ax.tick_params(labelsize = ticksize, size=ticks)
-    ax.set_xlim(8.95,10.05)
-    ax.set_ylim(-3,1.6)
-    if ssfr:
-        ax.set_ylim(-12,-8)
-    c=c+1
+color = 'blue'
+ax.plot(fluxdata[allgood]['LMASS'],fluxdata[allgood]['UmV'],color=color,marker='o',ms=ms,lw=0.5,ls='None',label='Significant H$\\alpha$ Detection')
+ax.plot(fluxdata[somelow]['LMASS'],fluxdata[somelow]['UmV'],color=color,marker='v',mfc='None',ms=ms,lw=0.5,ls='None',label='Upper Limit on H$\\alpha$')
+ax.plot(fluxdata[baddata]['LMASS'],fluxdata[baddata]['UmV'],color=color,marker='o',mfc='None',ms=ms,lw=0.5,ls='None',label='No H$\\alpha$ Measurement',mew=1.2)
+ax.plot(alldata[nostar]['LMASS'],alldata[nostar]['UmV'],color='red',marker='o',mfc='None',ms=ms,lw=0.5,ls='None',label='No Redshift Measurement',mew=1.2)
+if paper:
+    ax.set_ylim(-0.2,2.2)
+else:
+    ax.set_ylim(0.1,2.2)
+ax.set_xlim(8.95,10.05)
+ax.set_xlabel('log(Stellar Mass) (M$_\odot)$',fontsize = axisfont)
+ax.set_ylabel('U-V (mag)',fontsize = axisfont)
+if not paper:
+    ax.legend(fontsize=axisfont-2,bbox_to_anchor=(1.01, 0.5))
+else:
+    ax.legend(loc=4,fontsize=axisfont-8)
+ax.tick_params(labelsize = ticksize, size=ticks)
 
 fig.tight_layout()
-if ssfr: fig.savefig(figout + 'sSFR_Mass.pdf')
-else: fig.savefig(figout + 'SFR_Mass.pdf')
+fig.savefig(figout + 'Completeness.pdf')
 plt.close(fig)
+

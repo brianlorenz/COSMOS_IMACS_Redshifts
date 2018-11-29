@@ -47,6 +47,17 @@ sprop_df = ascii.read(spropdatapath).to_pandas()
 sprop_df = sprop_df.rename(columns={'id':'OBJID'})
 fluxdata = pd.merge(fluxdata,sprop_df)
 
+#The location with the file for the filter data
+filtdatapath = '/Users/blorenz/COSMOS/COSMOSData/all_c_hasinger.txt'
+#Read in the data
+filtdata = ascii.read(filtdatapath).to_pandas()
+cordata = filtdata[['id','Ks','eKs','Ks_tot','eKs_tot']]
+cordata = cordata.rename(columns={'id':'OBJID'})
+
+fluxdata = pd.merge(fluxdata,cordata,on='OBJID',how='inner')
+fluxdata = fluxdata.drop_duplicates()
+fluxdata = fluxdata.reset_index()
+
 #Fontsizes for plotting
 axisfont = 24
 ticksize = 18
@@ -61,7 +72,7 @@ def divz(X,Y):
 
 err = err_dfred['6563_fix_u']
 errSFR = err*10**-17*4*np.pi*((cosmo.luminosity_distance(fluxdata['zcc'])*3.086*10**24)**2)*10**-41.27
-Halum = fluxdata['6563_fix_flux_red']*10**-17*4*np.pi*((cosmo.luminosity_distance(fluxdata['zcc'])*3.086*10**24)**2)
+Halum = fluxdata['6563_fix_flux_red']*10**-17*4*np.pi*((cosmo.luminosity_distance(fluxdata['zcc'])*3.086*10**24)**2)*(fluxdata.Ks_tot/fluxdata.Ks)
 fluxdata['SFR'] = Halum*10**-41.27 #Kennicutt and Evans (2012)
 fluxdata['SFR'] = fluxdata['SFR'].astype(float)
 
@@ -81,7 +92,6 @@ somelow = np.logical_and(np.logical_or.reduce(lowlines),np.logical_not(baddata))
 
 
 combinemass = 1
-
 
 
 filtSFR = fluxdata['SFR']<10000000

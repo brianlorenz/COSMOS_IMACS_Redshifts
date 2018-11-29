@@ -81,16 +81,6 @@ somelow = np.logical_and(np.logical_or.reduce(lowlines),np.logical_not(baddata))
 
 
 
-#Gets rid of objects with no mips measurement
-filtmips = fluxdata['mips24']>0
-filtks = fluxdata['Ks']>0
-filtmuz = np.logical_and(filtmips,filtks)
-
-#Finds the magnitudes of these bands:
-fluxdata['mips24mag'] = -2.5*np.log10(fluxdata['mips24'])+25
-fluxdata['Ksmag'] = -2.5*np.log10(fluxdata['Ks'])+25
-
-
 #Plot the data with error bars
 #Counter
 c = 0
@@ -142,58 +132,49 @@ plt.close(fig)
 '''
 
 
-cutvar = 'k24'
-cutvarname = 'k24mag'
-cutoff = 0.25
-cutoff2 = -0.35
-ycutname = 'Ks-[24]'
+cutvar = 'LMASS'
+cutvarname = 'LMASS'
+cutoff = 9.5
+cutoff2 = 0
+ycutname = 'LMASS'
 
 
-combinegoodlow = 1
 
 
-fig,axarr = plt.subplots(2,1,figsize=(8,15),sharex=False)
-#axarr = np.reshape(axarr,6)
+
+fig,axarr = plt.subplots(2,1,figsize=(9,15),sharex=False)
+axarr 
 
 c=0
 for ax in axarr:
     color='dodgerblue'
     color2='darkblue'
     color3= 'blue'
-    if c in [0,3]:
+    if c in [0,1]:
         col = 'good'
-        filt = allgood
-        if combinegoodlow: filt=np.logical_not(baddata)
+        filt = notbad
     elif c in [1,4]:
-        continue
         col = 'low'
         filt = somelow
     else:
-        continue
         col = 'bad'
         filt = baddata
-    filt = np.logical_and(filt,filtmuz)
-    #k24 = fluxdata[filt]['Ks'] - fluxdata[filt]['mips24']
-    fluxdata['k24'] = fluxdata['Ksmag'] - fluxdata['mips24mag']
-    emipsmag = -2.5*(1/np.log(10))*divz(fluxdata['emips24'],fluxdata['mips24'])
-    ekmag = -2.5*(1/np.log(10))*divz(fluxdata['eKs'],fluxdata['Ks'])
-    fluxdata['ek24'] = np.sqrt(emipsmag**2+ekmag**2)
     filtup = np.logical_and(filt,fluxdata[cutvar]>=cutoff)
     filtdown = np.logical_and(filt,fluxdata[cutvar]<cutoff)
     if cutoff2 != 0:
         filtmid = np.logical_and(fluxdata[cutvar]<cutoff,fluxdata[cutvar]>=cutoff2)
         filtmid = np.logical_and(filt,filtmid)
         filtdown = np.logical_and(filt,fluxdata[cutvar]<cutoff2)
-    if c in [0,1,2]:
-        ax.errorbar(fluxdata[filtup]['av'],fluxdata[filtup]['k24'],yerr=fluxdata[filtup]['ek24'],xerr=fluxdata[filtup]['dav1'],color=color,marker='o',ms=4,lw=0.5,ls='None')
-        ax.errorbar(fluxdata[filtdown]['av'],fluxdata[filtdown]['k24'],yerr=fluxdata[filtdown]['ek24'],xerr=fluxdata[filtdown]['dav1'],color=color2,marker='o',ms=4,lw=0.5,ls='None')
+    if c in [0]:
+        ax.errorbar(fluxdata[filtup]['LMASS'],fluxdata[filtup]['av'],yerr=fluxdata[filtup]['dav1'],color=color,marker='o',ms=4,lw=0.5,ls='None')
+        ax.errorbar(fluxdata[filtdown]['LMASS'],fluxdata[filtdown]['av'],yerr=fluxdata[filtdown]['dav1'],color=color2,marker='o',ms=4,lw=0.5,ls='None')
         if cutoff2 != 0:
             ax.errorbar(fluxdata[filtmid]['av'],fluxdata[filtmid]['k24'],yerr=fluxdata[filtmid]['ek24'],xerr=fluxdata[filtmid]['dav1'],color=color3,marker='o',ms=4,lw=0.5,ls='None')
             ax.plot((-100,100),(cutoff2,cutoff2),color='black',ls='--')
-        ax.set_ylim(-3,3)
-        ax.set_xlim(0,4.5)
-        ax.set_xlabel('Av (mag)',fontsize = axisfont)
-        if c==0: ax.set_ylabel('Ks-[24] (mag)',fontsize = axisfont)
+        ax.set_xlim(8.95,10.05)
+        ax.set_ylim(0,4.5)
+        ax.set_xlabel('log(Mass) (M$_{sun}$)',fontsize = axisfont)
+        ax.set_ylabel('Av (mag)',fontsize = axisfont)
         ax.plot((-100,100),(cutoff,cutoff),color='black',ls='--')
     else:
         ydistup = np.arange(len(fluxdata['av'][filtup]))/float(len(fluxdata['av'][filtup]))
@@ -205,8 +186,9 @@ for ax in axarr:
         xdistdown = np.sort(fluxdata['av'][filtdown])
         ax.plot(xdistup,ydistup,color=color,lw=2,label=ycutname + ' > ' + str(cutoff))
         if cutoff2 !=0:  ax.plot(xdistmid,ydistmid,color=color3,lw=2,label=str(cutoff2) + ' < ' + ycutname + ' < ' + str(cutoff))
-        ax.plot(xdistdown,ydistdown,color=color2,lw=2,label=ycutname + ' < ' + str(cutoff2))
-        if c==3: ax.set_ylabel('Cumulative Distribution',fontsize = axisfont)
+        ax.plot(xdistdown,ydistdown,color=color2,lw=2,label=ycutname + ' < ' + str(cutoff))
+        
+        ax.set_ylabel('Cumulative Distribution',fontsize = axisfont)
         ax.set_xlabel('Av (mag)',fontsize = axisfont)
         ax.set_ylim(0,1)
         ax.set_xlim(0,4.5)
@@ -219,10 +201,9 @@ for ax in axarr:
     #Titles, axes, legends
     ax.tick_params(labelsize = ticksize, size=ticks)
     
-    c=c+3
+    c=c+1
 
 fig.tight_layout()
-if cutoff2 ==0: fig.savefig(figout + 'Av_Ks24.pdf')
-else: fig.savefig(figout + 'Av_Ks24_3bin.pdf')
+fig.savefig(figout + 'Av_mass_cumu.pdf')
 plt.close(fig)
 

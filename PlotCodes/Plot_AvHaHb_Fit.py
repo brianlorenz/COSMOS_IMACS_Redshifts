@@ -141,9 +141,13 @@ dup = 0
 HaHbok = (fluxdata['AvHaHbok'] > 0)
 allgoodavs = np.logical_and(allgood,HaHbok)
 
-fig,axarr = plt.subplots(1,2,figsize=(14,7),sharex=True,sharey=True)
-ax = axarr[0]
-ax2 = axarr[1]
+grey=1
+
+if grey:
+    fig,axarr = plt.subplots(1,2,figsize=(16,8),sharex=True,sharey=True)
+    ax = axarr[0]
+    ax2 = axarr[1]
+else: fig,ax = plt.subplots(figsize=(8,7))
 
 
 #Plot the data with error bars
@@ -153,24 +157,24 @@ if 1==1:
     if c==0:
         col = 'good'
         filt = allgoodavs
-        color='blue'
+        color='cornflowerblue'
     if (c==0 and dup):
         for j in range(0,3):
             ax.plot(-100,-100,color=colorsmask[2*j],ms=4,marker='o',label=labels[j])
     if dup: ax.errorbar(fluxdata[filt]['AvHaHb'],fluxdata[filt]['av'],xerr=fluxdata[filt]['AvHaHberr'],yerr=fluxdata[filt]['dav1'],color='grey',marker='o',ms=4,lw=0.5,ls='None',zorder=3)
     else:
-        ax2.errorbar(fluxdata[somelow]['AvHaHb'],fluxdata[somelow]['av'],xerr=fluxdata[somelow]['AvHaHberr'],yerr=fluxdata[somelow]['dav1'],color='grey',marker='o',ms=4,lw=0.5,ls='None',label='Non-detection')
+        if grey: ax2.errorbar(fluxdata[somelow]['AvHaHb'],fluxdata[somelow]['av'],xerr=fluxdata[somelow]['AvHaHberr'],yerr=fluxdata[somelow]['dav1'],color='grey',marker='o',ms=4,lw=0.5,ls='None',label='Non-detection')
         ax.errorbar(fluxdata[filt]['AvHaHb'],fluxdata[filt]['av'],xerr=fluxdata[filt]['AvHaHberr'],yerr=fluxdata[filt]['dav1'],color=color,marker='o',ms=4,lw=0.5,ls='None',label='Significant detection')
-        ax.legend(loc=2,fontsize=legendfont-2)
-        ax2.legend(loc=2,fontsize=legendfont-2)
+        ax.legend(loc=2,fontsize=axisfont-2)
+        if grey: ax2.legend(loc=2,fontsize=axisfont-2)
         
     #Titles, axes, legends
     if c==0:
         ax.set_xlabel('Av H$\\alpha$/H$\\beta$ (mag)',fontsize = axisfont)
-        ax2.set_xlabel('Av H$\\alpha$/H$\\beta$ (mag)',fontsize = axisfont)
-    ax.set_ylabel('Av Fit (mag)',fontsize = axisfont)
-    ax.tick_params(labelsize = ticksize-2, size=ticks)
-    ax2.tick_params(labelsize = ticksize-2, size=ticks)
+        ax.set_ylabel('Av Fit (mag)',fontsize = axisfont)
+        if grey: ax2.set_xlabel('Av H$\\alpha$/H$\\beta$ (mag)',fontsize = axisfont)
+    ax.tick_params(labelsize = ticksize+6, size=ticks)
+    if grey: ax2.tick_params(labelsize = ticksize+6, size=ticks)
     #Draw lines between duplicats:
     if (c==0 and dup):
             for i in range(0,len(dupobjsarr)):
@@ -181,10 +185,12 @@ if 1==1:
     c = c+1
     #Plot a unity line
     ax.plot((-10,1000),(-10,1000),color='black',ls='--')
-    ax2.plot((-10,1000),(-10,1000),color='black',ls='--')
+    if grey: ax2.plot((-10,1000),(-10,1000),color='black',ls='--')
     ax.set_xlim(-0.5,4)
-    ax2.set_ylim(-0.5,4)
+    ax.set_ylim(-0.5,4)
+    if grey: ax2.set_ylim(-0.5,4)
 fig.tight_layout()
 if dup: fig.savefig(figout + 'avfit_avHaHb_dup.pdf')
-else: fig.savefig(figout + 'avfit_avHaHb_mass.pdf')
+elif grey: fig.savefig(figout + 'avfit_avHaHb_mass.pdf')
+else: fig.savefig(figout + 'avfit_avHaHb_mass_pres.pdf')
 plt.close(fig)

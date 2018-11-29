@@ -111,10 +111,11 @@ ax2.legend()
 legcolor = 'grey'
 legend_elements = [Line2D([0], [0],ls=lss[0],color=legcolor, label='Rv = 3.25'),Line2D([0], [0],color=legcolor,ls=lss[1], label='Rv = 4.05'),Line2D([0], [0],ls=lss[2],color=legcolor, label='Rv = 4.85'),Line2D([0], [0],color=colors[0], label='Calzetti'),Line2D([0], [0],color=colors[1], label='Cardelli'),]
 
-ax.legend(handles=legend_elements, fontsize=legendfont, loc=2)
-ax.plot((6562.8,6562.8),(-100,100),color='black',ls='--')
-ax.plot((4861.3,4861.3),(-100,100),color='black',ls='--')
-ax.plot((4340.5,4340.5),(-100,100),color='black',ls='--')
+ax.legend(handles=legend_elements, fontsize=legendfont, loc=2,framealpha=1)
+ax.plot((6562.8,6562.8),(-100,100),color='black',ls='-.')
+ax.plot((4861.3,4861.3),(-100,100),color='black',ls='-.')
+ax.plot((4340.5,4340.5),(-100,100),color='black',ls='-.')
+ax.plot((4101.7,4101.7),(-100,100),color='black',ls='-.')
 ax.text(0.865,0.02,'Av = 1',fontsize = axisfont-2, transform=ax.transAxes)
 ax.set_ylim(0.2,0.6)
 ax.set_xlim(3800,7000)

@@ -16,10 +16,14 @@ figout = '/Users/blorenz/COSMOS/Reports/2018/Images/'
 qualout = '/Users/blorenz/COSMOS/COSMOSData/dataqual.txt'
 
 #The location with the file for all of our data
-fluxdatapath = '/Users/blorenz/COSMOS/COSMOSData/lineflux.txt'
+fluxdatapath = '/Users/blorenz/COSMOS/COSMOSData/lineflux_zero.txt'
 
 #The location with the file for all of our data
 outpath = '/Users/blorenz/COSMOS/COSMOSData/lineflux_red.txt'
+
+#Path for outdated avs, computed using balmer ratio
+avpath = '/Users/blorenz/COSMOS/COSMOSData/balmer_avs.txt'
+av_df = ascii.read(avpath).to_pandas()
 
 
 #The location to store the scale and its stddev of each line
@@ -36,6 +40,12 @@ ew_df = ascii.read(ewdata).to_pandas()
 errdatapath = '/Users/blorenz/COSMOS/COSMOSData/errs.txt'
 #Read in the scale of the lines 
 err_df = ascii.read(errdatapath,data_start=1,header_start=0,format='csv').to_pandas()
+
+#The location to store the scale and its stddev of each line
+qualdatapath = '/Users/blorenz/COSMOS/COSMOSData/dataqual.txt'
+#Read in the scale of the lines 
+dataqual = ascii.read(qualdatapath).to_pandas()
+d = {'True': True, 'False': False}
 
 #File with the error array
 errreddatapath = '/Users/blorenz/COSMOS/COSMOSData/errs_red.txt'
@@ -59,7 +69,7 @@ fluxdata = pd.merge(fluxdata,mdata)
 
 
 #Location of the reddening data
-reddata = '/Users/blorenz/COSMOS/COSMOSData/reddenings.txt'
+reddata = '/Users/blorenz/COSMOS/COSMOSData/reddenings.dat'
 #Read in the ew of the lines 
 red_df = ascii.read(reddata).to_pandas()
 red_df = red_df.drop('zcc',axis=1)
@@ -95,21 +105,28 @@ def Calzetti(wave,Av,Rv):
 err_dfred=pd.DataFrame()
 err_dfred['fluxfile'] = fluxdata['fluxfile']
 alllines = ['3727','4102','4340','4861','4959','5007','6548','6548_fix','6563','6563_fix','6583','6583_fix']
+#Set low objects to an upper limit
+for line in alllines:
+    for i in range(0,len(fluxdata)):
+        if (fluxdata.iloc[i][line+'_flux'] == 0) and (dataqual.iloc[i][line+'_low']=='True'):
+            fluxdata.at[i,line+'_flux'] = 5*err_df.iloc[i][line]
+            #print ('New flux ' + str(fluxdata.iloc[i][line+'_flux']))
+
 for line in alllines:
     if len(line) == 4: lineint = int(line)
     else: lineint = int(line[0:4])
     Av = fluxdata.av
-    dAv = fluxdata.dav1
+    dAv1 = fluxdata.dav1
+    dAv2 = fluxdata.dav2
     F_rat = Calzetti(lineint,Av,4.05)
-    dFratu = Calzetti(lineint,Av+dAv,4.05)
-    dFratd = Calzetti(lineint,Av-dAv,4.05)
+    dFratu = Calzetti(lineint,Av+np.abs(dAv2),4.05)
+    dFratd = Calzetti(lineint,Av-np.abs(dAv1),4.05)
     erru = (fluxdata[line+'_flux']/dFratu) - (fluxdata[line+'_flux']/F_rat)
     errd = (fluxdata[line+'_flux']/F_rat) - (fluxdata[line+'_flux']/dFratd)
     fluxdata[line+'_flux_red'] = fluxdata[line+'_flux']/F_rat
-    err_dfred[line+'_u'] = np.sqrt(erru**2+err_df[line]**2)
-    err_dfred[line+'_d'] = np.sqrt(errd**2+err_df[line]**2)
+    err_dfred[line+'_u'] = np.sqrt(erru**2+(err_df[line]/F_rat)**2)
+    err_dfred[line+'_d'] = np.sqrt(errd**2+(err_df[line]/F_rat)**2)
 
-    
 
 err_dfred.to_csv(errreddatapath,index=False)
 fluxdata.to_csv(outpath,index=False)

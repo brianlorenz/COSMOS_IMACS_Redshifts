@@ -80,11 +80,13 @@ somelow = np.logical_and(np.logical_or.reduce(lowlines),np.logical_not(baddata))
 
 
 
-
 #Gets rid of objects with no mips measurement
 filtmips = fluxdata['mips24']>0
 filtks = fluxdata['Ks']>0
 filtmuz = np.logical_and(filtmips,filtks)
+
+emed24 = np.median(fluxdata[filtmips]['emips24'])
+fluxdata.loc[np.logical_not(filtmips)]['mips24'] = emed24
 
 #Finds the magnitudes of these bands:
 fluxdata['mips24mag'] = -2.5*np.log10(fluxdata['mips24'])+25
@@ -144,85 +146,44 @@ plt.close(fig)
 
 cutvar = 'k24'
 cutvarname = 'k24mag'
-cutoff = 0.25
-cutoff2 = -0.35
+cutoff = 0.5
 ycutname = 'Ks-[24]'
+
+
+fluxdata['k24'] = fluxdata['Ksmag'] - fluxdata['mips24mag']
+emipsmag = -2.5*(1/np.log(10))*divz(fluxdata['emips24'],fluxdata['mips24'])
+ekmag = -2.5*(1/np.log(10))*divz(fluxdata['eKs'],fluxdata['Ks'])
+fluxdata['ek24'] = np.sqrt(emipsmag**2+ekmag**2)
 
 
 combinegoodlow = 1
 
 
-fig,axarr = plt.subplots(2,1,figsize=(8,15),sharex=False)
+fig,ax = plt.subplots(figsize=(8,7))
 #axarr = np.reshape(axarr,6)
 
-c=0
-for ax in axarr:
-    color='dodgerblue'
-    color2='darkblue'
-    color3= 'blue'
-    if c in [0,3]:
-        col = 'good'
-        filt = allgood
-        if combinegoodlow: filt=np.logical_not(baddata)
-    elif c in [1,4]:
-        continue
-        col = 'low'
-        filt = somelow
-    else:
-        continue
-        col = 'bad'
-        filt = baddata
-    filt = np.logical_and(filt,filtmuz)
-    #k24 = fluxdata[filt]['Ks'] - fluxdata[filt]['mips24']
-    fluxdata['k24'] = fluxdata['Ksmag'] - fluxdata['mips24mag']
-    emipsmag = -2.5*(1/np.log(10))*divz(fluxdata['emips24'],fluxdata['mips24'])
-    ekmag = -2.5*(1/np.log(10))*divz(fluxdata['eKs'],fluxdata['Ks'])
-    fluxdata['ek24'] = np.sqrt(emipsmag**2+ekmag**2)
-    filtup = np.logical_and(filt,fluxdata[cutvar]>=cutoff)
-    filtdown = np.logical_and(filt,fluxdata[cutvar]<cutoff)
-    if cutoff2 != 0:
-        filtmid = np.logical_and(fluxdata[cutvar]<cutoff,fluxdata[cutvar]>=cutoff2)
-        filtmid = np.logical_and(filt,filtmid)
-        filtdown = np.logical_and(filt,fluxdata[cutvar]<cutoff2)
-    if c in [0,1,2]:
-        ax.errorbar(fluxdata[filtup]['av'],fluxdata[filtup]['k24'],yerr=fluxdata[filtup]['ek24'],xerr=fluxdata[filtup]['dav1'],color=color,marker='o',ms=4,lw=0.5,ls='None')
-        ax.errorbar(fluxdata[filtdown]['av'],fluxdata[filtdown]['k24'],yerr=fluxdata[filtdown]['ek24'],xerr=fluxdata[filtdown]['dav1'],color=color2,marker='o',ms=4,lw=0.5,ls='None')
-        if cutoff2 != 0:
-            ax.errorbar(fluxdata[filtmid]['av'],fluxdata[filtmid]['k24'],yerr=fluxdata[filtmid]['ek24'],xerr=fluxdata[filtmid]['dav1'],color=color3,marker='o',ms=4,lw=0.5,ls='None')
-            ax.plot((-100,100),(cutoff2,cutoff2),color='black',ls='--')
-        ax.set_ylim(-3,3)
-        ax.set_xlim(0,4.5)
-        ax.set_xlabel('Av (mag)',fontsize = axisfont)
-        if c==0: ax.set_ylabel('Ks-[24] (mag)',fontsize = axisfont)
-        ax.plot((-100,100),(cutoff,cutoff),color='black',ls='--')
-    else:
-        ydistup = np.arange(len(fluxdata['av'][filtup]))/float(len(fluxdata['av'][filtup]))
-        ydistdown = np.arange(len(fluxdata['av'][filtdown]))/float(len(fluxdata['av'][filtdown]))
-        if cutoff2 !=0:
-            ydistmid = np.arange(len(fluxdata['av'][filtmid]))/float(len(fluxdata['av'][filtmid]))
-            xdistmid = np.sort(fluxdata['av'][filtmid])
-        xdistup = np.sort(fluxdata['av'][filtup])
-        xdistdown = np.sort(fluxdata['av'][filtdown])
-        ax.plot(xdistup,ydistup,color=color,lw=2,label=ycutname + ' > ' + str(cutoff))
-        if cutoff2 !=0:  ax.plot(xdistmid,ydistmid,color=color3,lw=2,label=str(cutoff2) + ' < ' + ycutname + ' < ' + str(cutoff))
-        ax.plot(xdistdown,ydistdown,color=color2,lw=2,label=ycutname + ' < ' + str(cutoff2))
-        if c==3: ax.set_ylabel('Cumulative Distribution',fontsize = axisfont)
-        ax.set_xlabel('Av (mag)',fontsize = axisfont)
-        ax.set_ylim(0,1)
-        ax.set_xlim(0,4.5)
-        ax.legend(loc=4,fontsize=axisfont-2)
-    #ax.plot((-100,0.69),(1.3,1.3),color='black')
-    #ax.plot((1.5,1.5),(2.01,100),color='black')
-    #xline = np.arange(0.69,1.5,0.001)
-    #yline = xline*0.88+0.69
-    #ax.plot(xline,yline,color='black')
-    #Titles, axes, legends
-    ax.tick_params(labelsize = ticksize, size=ticks)
-    
-    c=c+3
+
+col = 'good'
+filt=np.logical_not(baddata)
+filt = np.logical_and(filt,filtmuz)
+ax.errorbar(fluxdata[filt]['LMASS'],fluxdata[filt]['k24'],yerr=fluxdata[filt]['ek24'],color='black',marker='o',ms=4,lw=0.5,ls='None',label=None)
+cutoff = np.median(fluxdata[filt]['av'])
+binlow = fluxdata['av']<cutoff
+binhigh = fluxdata['av']>=cutoff
+filtlow = np.logical_and(filt,binlow)
+filthigh = np.logical_and(filt,binhigh)
+ax.scatter(fluxdata[filtlow]['LMASS'],fluxdata[filtlow]['k24'],c='red',marker='o',s=16,zorder=3,label='Av < '+ str(round(cutoff,2)))
+ax.scatter(fluxdata[filthigh]['LMASS'],fluxdata[filthigh]['k24'],c='blue',marker='o',s=16,zorder=3,label='Av >= '+ str(round(cutoff,2)))
+ax.legend()
+ax.set_ylim(-3,3)
+ax.set_xlim(8.95,10.05)
+ax.set_xlabel('log(Stellar Mass) (M$_{sun}$)',fontsize = axisfont)
+ax.set_ylabel('Ks-[24] (mag)',fontsize = axisfont)
+#Titles, axes, legends
+ax.tick_params(labelsize = ticksize, size=ticks)
+ 
 
 fig.tight_layout()
-if cutoff2 ==0: fig.savefig(figout + 'Av_Ks24.pdf')
-else: fig.savefig(figout + 'Av_Ks24_3bin.pdf')
+fig.savefig(figout + 'Av_Ks24_LMASS.pdf')
 plt.close(fig)
 
