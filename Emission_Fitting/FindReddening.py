@@ -16,7 +16,7 @@ figout = '/Users/blorenz/COSMOS/Reports/2018/Images/'
 qualout = '/Users/blorenz/COSMOS/COSMOSData/dataqual.txt'
 
 #The location with the file for all of our data
-fluxdatapath = '/Users/blorenz/COSMOS/COSMOSData/lineflux_zero.txt'
+fluxdatapath = '/Users/blorenz/COSMOS/COSMOSData/lineflux.txt'
 
 #The location with the file for all of our data
 outpath = '/Users/blorenz/COSMOS/COSMOSData/lineflux_red.txt'
@@ -28,22 +28,22 @@ av_df = ascii.read(avpath).to_pandas()
 
 #The location to store the scale and its stddev of each line
 scaledata = '/Users/blorenz/COSMOS/COSMOSData/scales.txt'
-#Read in the scale of the lines 
+#Read in the scale of the lines
 #scale_df = ascii.read(scaledata).to_pandas()
 
 #Location of the equivalent width data
 ewdata = '/Users/blorenz/COSMOS/COSMOSData/lineew.txt'
-#Read in the ew of the lines 
+#Read in the ew of the lines
 ew_df = ascii.read(ewdata).to_pandas()
 
 #File with the error array
 errdatapath = '/Users/blorenz/COSMOS/COSMOSData/errs.txt'
-#Read in the scale of the lines 
+#Read in the scale of the lines
 err_df = ascii.read(errdatapath,data_start=1,header_start=0,format='csv').to_pandas()
 
 #The location to store the scale and its stddev of each line
 qualdatapath = '/Users/blorenz/COSMOS/COSMOSData/dataqual.txt'
-#Read in the scale of the lines 
+#Read in the scale of the lines
 dataqual = ascii.read(qualdatapath).to_pandas()
 d = {'True': True, 'False': False}
 
@@ -70,7 +70,7 @@ fluxdata = pd.merge(fluxdata,mdata)
 
 #Location of the reddening data
 reddata = '/Users/blorenz/COSMOS/COSMOSData/reddenings.dat'
-#Read in the ew of the lines 
+#Read in the ew of the lines
 red_df = ascii.read(reddata).to_pandas()
 red_df = red_df.drop('zcc',axis=1)
 fluxdata = pd.merge(fluxdata,red_df,on='fluxfile')

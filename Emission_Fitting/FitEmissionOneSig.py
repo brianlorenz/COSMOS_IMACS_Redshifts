@@ -1,7 +1,7 @@
 #Fits an emission ine with a Gaussian and returns the amplitude, standard deviation, and continuum line
 
 #Usage:      run FitEmission.py 'a6' 4861   to fit the lines at rest wavelengths 6563 (Ha) for the a6 mask.
-#Typing  run FitEmission.py 'a6' 'HaNII' will fit all three lines around Ha simulaaneously  
+#Typing  run FitEmission.py 'a6' 'HaNII' will fit all three lines around Ha simulaaneously
 
 
 
@@ -29,7 +29,8 @@ ourdatapath = '/Users/blorenz/COSMOS/COSMOSData/all_c_hasinger.txt'
 caldatapath = '/Users/blorenz/COSMOS/COSMOSData/flxFitsFileOut/'
 #File for all of the emission/absorption features of the galaxy (to mask out other features when fitting)
 linedata = '/Users/blorenz/COSMOS/COSMOSData/corFitsFileOut/galaxylines.dat'
-
+#File for the MAD of the difference in flux of duplicates in each line (to flag low S/N lines)
+maddatapath = '/Users/blorenz/COSMOS/COSMOSData/linemad.txt'
 
 #Read in the spectral lines for masking
 gallines = ascii.read(linedata).to_pandas()
@@ -42,7 +43,7 @@ gallines = gallines.reset_index()
 if os.path.exists(dataout):
     outarr = ascii.read(dataout).to_pandas()
 else: outarr = pd.DataFrame()
-    
+
 
 #Division function
 def divz(X,Y):
@@ -55,14 +56,14 @@ titlefont = 24
 legendfont = 16
 textfont = 16
 
-#Set the letnum 
+#Set the letnum
 letnum = sys.argv[1]
 
 #Read in all of our data
 ourdata = ascii.read(ourdatapath).to_pandas()
 ourdata = ourdata[ourdata.ImageName.str.contains('feb1' + letnum[1] + '_' + letnum[0]) == True]
 ourdata = ourdata[ourdata.Unsure == 0]
-#ourdata = ourdata[ourdata.Bad == 0]
+ourdata = ourdata[ourdata.Bad == 0]
 ourdata = ourdata[ourdata.Flag3 == 0]
 #ourdata = ourdata[ourdata.Flag1 == 0]
 ourdata = ourdata[ourdata.Star == 0]
@@ -76,7 +77,7 @@ def getMask(modelspec,sigspec,spectrum):
     #Get the weights so we can downweight by noise
     w = divz(1,sigspec)*maskline
     return m,w
-    
+
 
 
 #Find the objid of every object, and it's corresponding letter number combination
@@ -93,8 +94,8 @@ plt10b = 0
 #Set the gridsize, so 12 means a 12x12 grid
 gridsize = 12
 #Start the plot before the loop:
-fig,axarr = plt.subplots(gridsize,gridsize,figsize = (150,80))
-figb,axarrb = plt.subplots(gridsize,gridsize,figsize = (150,80))
+fig,axarr = plt.subplots(gridsize,gridsize,figsize = (100,80))
+figb,axarrb = plt.subplots(gridsize,gridsize,figsize = (100,80))
 
 #Loop the fitting over all objects
 #for i in range(16,20):
@@ -113,7 +114,7 @@ for i in range(len(objs)):
             flxhead = fits.open(flxfits)[0].header
             #Read in the spectrum and model
             spec = flxdata[0]
-            noise = flxdata[1] 
+            noise = flxdata[1] #?
             model = flxdata[3]
             #Calculate the wavelength range for the data
             crval1 = flxhead["crval1"]
@@ -141,7 +142,7 @@ for i in range(len(objs)):
                     HaNIIdat.at[0,'restwave'] = 6548.1
                     HaNIIdat.at[1,'restwave'] = 6562.8
                     HaNIIdat.at[2,'restwave'] = 6583.0
-                    
+
                 else: line = int(line)
                 #Compute the wavelength of the line redshifted to the galaxy
                 zline = (1+zcc)*line
@@ -157,7 +158,7 @@ for i in range(len(objs)):
                     idx = np.arange(0,srange)
                     idx2 = np.arange(0,shrange)
                     fitflag = 5 #Flagged for not in view
-                    
+
                 #Crop the spectrum to the proper range
                 waveline = wavelength[idx]
                 specline = spec[idx]
@@ -169,7 +170,7 @@ for i in range(len(objs)):
                 #Redshift the lines to the current galaxy
                 zgallines = gallines.col1*(1+zcc)
 
-            
+
                 #Mask out the spectral lines with this function
                 #data - the data to mask out
                 #line - the line to keep (others are masked)
@@ -212,7 +213,7 @@ for i in range(len(objs)):
                     #Find the indices where the arrays match (we will drop these)
                     dropidx = [np.nonzero(np.in1d(wavedrop,i))[0] for i in centerrange]
                     #Save this version for plotting
-                    pdropidx = dropidx 
+                    pdropidx = dropidx
                     #Drop the values at those indices from both wavelength and spectrum
                     #Fixes a bug when they are not the same length -happens if line is on an edge
                     if len(dropidx) == 2:
@@ -252,21 +253,21 @@ for i in range(len(objs)):
                     A,B = nnls(np.transpose([g,m])*w[::,np.newaxis],dropspecline*w)[0]
                     return A,B
 
-                def gaussHa(x, z, sigma48, sigma63, sigma83):
-                    A48,A63,A83,B  = ampHa(x, z, sigma48, sigma63, sigma83)
-                    g48 = np.exp(-0.5*(x-(6548.1*(1+z)))**2/(np.e**sigma48)**2)/np.sqrt(2*np.pi*(np.e**sigma48)**2)
-                    g63 = np.exp(-0.5*(x-(6562.8*(1+z)))**2/(np.e**sigma63)**2)/np.sqrt(2*np.pi*(np.e**sigma63)**2)
-                    g83 = np.exp(-0.5*(x-(6583.0*(1+z)))**2/(np.e**sigma83)**2)/np.sqrt(2*np.pi*(np.e**sigma83)**2)
+                def gaussHa(x, z, sigma):
+                    A48,A63,A83,B  = ampHa(x, z, sigma)
+                    g48 = np.exp(-0.5*(x-(6548.1*(1+z)))**2/(np.e**sigma)**2)/np.sqrt(2*np.pi*(np.e**sigma)**2)
+                    g63 = np.exp(-0.5*(x-(6562.8*(1+z)))**2/(np.e**sigma)**2)/np.sqrt(2*np.pi*(np.e**sigma)**2)
+                    g83 = np.exp(-0.5*(x-(6583.0*(1+z)))**2/(np.e**sigma)**2)/np.sqrt(2*np.pi*(np.e**sigma)**2)
                     s = A48*g48 + A63*g63 + A83*g83 + B*m
                     return s
 
                 #A is area under Gauss curve, B is the scale factor of the continuum
-                def ampHa(x, z, sigma48, sigma63, sigma83):
-                    g48 = np.exp(-0.5*(x-(6548.1*(1+z)))**2/(np.e**sigma48)**2)/np.sqrt(2*np.pi*(np.e**sigma48)**2)
-                    g63 = np.exp(-0.5*(x-(6562.8*(1+z)))**2/(np.e**sigma63)**2)/np.sqrt(2*np.pi*(np.e**sigma63)**2)
-                    g83 = np.exp(-0.5*(x-(6583.0*(1+z)))**2/(np.e**sigma83)**2)/np.sqrt(2*np.pi*(np.e**sigma83)**2)
+                def ampHa(x, z, sigma):
+                    g48 = np.exp(-0.5*(x-(6548.1*(1+z)))**2/(np.e**sigma)**2)/np.sqrt(2*np.pi*(np.e**sigma)**2)
+                    g63 = np.exp(-0.5*(x-(6562.8*(1+z)))**2/(np.e**sigma)**2)/np.sqrt(2*np.pi*(np.e**sigma)**2)
+                    g83 = np.exp(-0.5*(x-(6583.0*(1+z)))**2/(np.e**sigma)**2)/np.sqrt(2*np.pi*(np.e**sigma)**2)
                     A48,A63,A83,B = nnls(np.transpose([g48,g63,g83,m])*w[::,np.newaxis],dropspecline*w)[0]
-                    return A48,A63,A83,B 
+                    return A48,A63,A83,B
 
                 ###Set initial guess parameters
                 #find the highest peak, get the wavelength value of it
@@ -274,24 +275,24 @@ for i in range(len(objs)):
                 pkidx = np.argmax(shspecline)+srange/2-shrange/2
                 #Wavelength of peak
                 peakwave = waveline[pkidx]
-                guess3 = (peakwave,np.log(2))   
+                guess3 = (peakwave,np.log(2))
                 guesscurve3 = gauss3(dropwaveline,guess3[0],guess3[1])
                 #Set the bounds, from expected position of the line +- 4 pixels, and sigma from 2 to 10
                 bounds3 = ([restwave*(1+zcc)-8,np.log(2)],[restwave*(1+zcc)+8,np.log(10)])
                 #Special case for OII doublet
-                if (line == 3727):
+                if linename == 'O[II]':
                     guess3 = (peakwave,np.log(4))
+                    guesscurve3 = gauss3(dropwaveline,guess3[0],guess3[1])
                     #Set the bounds
-                    bounds3 = ([peakwave-8,np.log(2)],[peakwave+8,np.log(15)])
-                    guesscurve3 = gauss3(dropwaveline,guess3[0],guess3[1])   
+                    bounds3 = ([restwave*(1+zcc)-8,np.log(2)],[restwave*(1+zcc)+8,np.log(15)])
                     #Special case for Ha lines, need to set for all three gaussians
                 if HaNII:
-                    guessHa = (zcc,np.log(2),np.log(2),np.log(2))
-                    guesscurveHa = gaussHa(dropwaveline,guessHa[0],guessHa[1],guessHa[2],guessHa[3])
-                    boundsHa =  ([zcc-0.0012,np.log(2),np.log(2),np.log(2)],[zcc+0.0012,np.log(10),np.log(10),np.log(10)])
-                    
+                    guessHa = (zcc,np.log(2))
+                    guesscurveHa = gaussHa(dropwaveline,guessHa[0],guessHa[1])
+                    boundsHa =  ([zcc-0.0012,np.log(2)],[zcc+0.0012,np.log(10)])
 
-                
+
+
                 #Check if there is a lot of bad data
                 if np.count_nonzero(~np.isnan(specline)):
                     try:
@@ -308,7 +309,7 @@ for i in range(len(objs)):
                             dropwaveline,dropspecline,dropmodelline,dropnoiseline,dropidx,linename,restwave,pdropidx,pdrop = droplines(peakwave=peakwave)
                             guess3 = (peakwave,coeff3[1])
 
-                        
+
                             #Redefine the gauss functions since now the model and noise have changed
                             m,w = getMask(dropmodelline, dropnoiseline, dropspecline)
                         #Model continuum
@@ -338,26 +339,26 @@ for i in range(len(objs)):
                         if not HaNII:
                             gausscurve3 = gauss3(dropwaveline,coeff3[0],coeff3[1])   #
                             amp3 = amp3(dropwaveline,coeff3[0],coeff3[1])   #
-                            mu3 = coeff3[0] 
+                            mu3 = coeff3[0]
                             stddev3 = np.e**np.abs(coeff3[1])
                             flux3 = amp3[0]
                             scale3 = amp3[1]
                         else:
-                            gausscurveHa = gaussHa(dropwaveline,coeffHa[0],coeffHa[1],coeffHa[2],coeffHa[3])
-                            ampHa = ampHa(dropwaveline,coeffHa[0],coeffHa[1],coeffHa[2],coeffHa[3])
+                            gausscurveHa = gaussHa(dropwaveline,coeffHa[0],coeffHa[1])
+                            ampHa = ampHa(dropwaveline,coeffHa[0],coeffHa[1])
                             #Fit redshift
                             zgauss = coeffHa[0]
                             #Mean of each line
                             for num in np.arange(0,3):
                                 HaNIIdat.at[num,'mu'] = HaNIIdat.iloc[num]['restwave']*(1+zgauss)
-                                HaNIIdat.at[num,'sig'] = np.e**np.abs(coeffHa[num+1])
+                                HaNIIdat.at[num,'sig'] = np.e**np.abs(coeffHa[1])
                                 HaNIIdat.at[num,'flux'] = ampHa[num]
                                 HaNIIdat.at[num,'scale'] = ampHa[3]
                             mu3 = HaNIIdat.iloc[1]['mu']
                             stddev3 = HaNIIdat.iloc[1]['sig']
                             flux3 = HaNIIdat.iloc[1]['flux']
                             scale3 = HaNIIdat.iloc[1]['scale']
-                            
+
                         #Compute chi^2 statistics in the range of the line
                         if not HaNII:
                             #Degrees of freedom: mu, sigma, area, scale
@@ -367,16 +368,15 @@ for i in range(len(objs)):
                             chiub = mu3+2*stddev3
                             #Get only the indices in that region
                             cidx = np.logical_and(dropwaveline > chilb-2, dropwaveline < chiub+2)
-                            cidx[np.where(dropspecline[cidx]<=0)[0]] = ~cidx[np.where(dropspecline[cidx]<=0)[0]]
                             arrchi2 = divz((dropspecline[cidx]-gausscurve3[cidx]),dropnoiseline[cidx])**2
                             chi2 = np.add.reduce(arrchi2)
                             rchi2 = divz(chi2,len(dropwaveline[cidx])-dof)
-                            
+
                             #Compute the sum of the fluxes in the line in the same region
                             sumflux = 2*np.add.reduce(dropspecline[cidx]-dropmodelline[cidx])
                         else:
                             #Degrees of freedom: z, scale, sigma (x3, for each line), area (x3, for each line)
-                            dof = 8
+                            dof = 6
                             cidxarr = []
                             #Set the lower and upper bounds for the region to find chi2
                             for num in np.arange(0,3):
@@ -389,7 +389,7 @@ for i in range(len(objs)):
                                 HaNIIdat.at[num,'rchi2'] = divz(HaNIIdat.iloc[num]['chi2'],len(dropwaveline[cidxarr[num]])-4)
                                 #Compute the sum of the fluxes in the line in the same region
                                 HaNIIdat.at[num,'sumflux'] = 2*np.add.reduce(dropspecline[cidxarr[num]]-dropmodelline[cidxarr[num]])
-                               
+
                                 zrestline = HaNIIdat.iloc[num]['restwave']*(1+zcc)
                                 idx3 = np.logical_and(waveline > zrestline-shrange, waveline < zrestline+shrange)
                                 HaNIIdat.at[num,'usig'] = np.sqrt(np.add.reduce(noiseline[idx3]**2))
@@ -405,9 +405,9 @@ for i in range(len(objs)):
                             chi2tot = np.add.reduce(arrchi2tot)
                             rchi2tot = divz(chi2tot,len(dropwaveline[cidxtot])-dof)
 
-                            
 
-                            
+
+
                         #Now compute the weigthed error
                         #Gaussian curve with area=1
                         if not HaNII:
@@ -420,7 +420,7 @@ for i in range(len(objs)):
                             wsig = HaNIIdat.iloc[1]['wsig']
                             usig = HaNIIdat.iloc[1]['usig']
                             linestr = 'HaNII'
-                                        
+
                         ###Set flags
                         #Make sure the flag isn't 5 (out of view). if it is, don't flag it otherwise
                         if fitflag ==5:
@@ -431,7 +431,7 @@ for i in range(len(objs)):
                         #Check if the width of the line hit the bounds
                         elif (stddev3 > 7.0):
                             fitflag = 2 #Marks bad sigma
-                    
+
 
                         #Check the flag for each line when fitting HaNII
                         if HaNII:
@@ -439,16 +439,14 @@ for i in range(len(objs)):
                                 if fitflag == 1: HaNIIdat.at[num,'flag'] = 1
                                 elif (HaNIIdat.iloc[num]['sig'] > 7.0):
                                     HaNIIdat.at[num,'flag'] = 2
-                                elif ((HaNIIdat.iloc[num]['scale'] < 0.7) or (HaNIIdat.iloc[num]['scale'] > 1.3)):
-                                    HaNIIdat.at[num,'flag'] = 4
                                 else:
                                     HaNIIdat.at[num,'flag'] = 0
-                                    
-                                
+
+
                         def mkplot(plt10,plt1,plt10b,plt1b,gridsize):
-                            #Create the plot    
+                            #Create the plot
                             #fig,ax0 = plt.subplots(figsize = (13,7))
-                            
+
                             #Set the axis to the correct number - check if it is flagged or not
                             if fitflag:
                                 ax0 = axarrb[plt10b,plt1b]
@@ -464,7 +462,7 @@ for i in range(len(objs)):
                                 if plt1 == gridsize:
                                     plt1 = 0
                                     plt10 = plt10 + 1
-                            
+
                             #Plotting
                             ax0.plot(waveline,specline,color='cornflowerblue',label='Spectrum')
                             #ax0.plot(dropwaveline,dropspecline,color='darkblue',label='Masked Spectrum')
@@ -480,53 +478,57 @@ for i in range(len(objs)):
                             if not HaNII:
                                 ax0.axvspan(np.min(dropwaveline[cidx]),np.max(dropwaveline[cidx]), color='grey', alpha=0.2, label='chi2 region')
                             else:
-                                [ax0.axvspan(np.min(dropwaveline[cidxarr[num]]),np.max(dropwaveline[cidxarr[num]]), color='grey', alpha=0.2, label='chi2 region') for num in np.arange(0,3)]
+                                pass
+                                #[ax0.axvspan(np.min(dropwaveline[cidxarr[num]]),np.max(dropwaveline[cidxarr[num]]), color='grey', alpha=0.2, label='chi2 region') for num in np.arange(0,3)]
                             ax0.plot(waveline,modelline*scale3,color='red',label='Model')
-                            ax0.plot(waveline,modelline,color='red',ls='--')
+                            #ax0.plot(waveline,modelline,color='red',ls='--')
                             #ax0.plot(dropwaveline,guesscurve3,color='orange',label='Initial Guess')
                             ax0.plot(dropwaveline,dropnoiseline,color='orange',label='Noise')
+                            #ax0.plot(((1+zcc)*6562.8,(1+zcc)*6562.8),(-1000,100000),label='Expected Mean',ls='--',color='red')
                             #Titles, axes, legends
-                            ax0.set_title('Fit for line at rest $\lambda$ of ' + str(int(np.round(restwave))) + ', OBJID ' + objs[i][0] + '_' + objs[i][1] + objs[i][2] + ', z=' + str(np.around(zcc,4)),fontsize = titlefont)
-                            ax0.legend(fontsize = legendfont,loc=1)
+                            #ax0.set_title('H$\\alpha$, OBJID ' + objs[i][0] + '_' + objs[i][1] + objs[i][2] + ', z=' + str(np.around(zcc,4)),fontsize = titlefont)
+                            ax0.set_ylim(-0.01,np.max(gausscurveHa)*1.1)
+
                             ax0.set_xlabel('Wavelength ($\AA$)',fontsize = axisfont)
                             ax0.set_ylabel('Flux ($10^{-17}$ erg/s/${cm}^2/\AA$)',fontsize = axisfont)
                             ax0.tick_params(labelsize = ticksize)
+                            #ax0.set_ylim(-0.07,0.75)
                             return ax0, plt10, plt1, plt10b, plt1b
 
-                        
-                        usigrat = divz(flux3,(usig*np.sqrt(rchi2)))
+
+
 
                         ax0,plt10,plt1,plt10b,plt1b = mkplot(plt10,plt1,plt10b,plt1b,gridsize)
                         if not HaNII:
-                            ax0.text(0.02,0.95,'Mean:       ' + str(round(mu3,2)),fontsize = textfont, transform=ax0.transAxes)      
+                            ax0.text(0.02,0.95,'Mean:       ' + str(round(mu3,2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.90,'Std Dev:   ' + str(round(stddev3,2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.85,'Scale:       ' + str(round(amp3[1],2)),fontsize = textfont, transform=ax0.transAxes)      
+                            ax0.text(0.02,0.85,'Scale:       ' + str(round(amp3[1],2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.80,'Flux:         ' + str(round(amp3[0],2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.75,'Sumflux:   ' + str(round(sumflux,2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.70,'Chi2:        ' + str(round(chi2,2)),fontsize = textfont, transform=ax0.transAxes)      
+                            ax0.text(0.02,0.70,'Chi2:        ' + str(round(chi2,2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.65,'rChi2:       ' + str(round(rchi2,2)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.60,'wsig:        ' + str(round(wsig,3)),fontsize = textfont, transform=ax0.transAxes)
                             ax0.text(0.02,0.55,'usig:         ' + str(round(usig,3)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.50,'usigrat:     ' + str(round(usigrat,3)),fontsize = textfont, transform=ax0.transAxes)
                         else:
-                            ax0.text(0.02,0.95,'Mean:    ' + str(round(HaNIIdat.iloc[0]['mu'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.24,0.95, str(round(HaNIIdat.iloc[1]['mu'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.40,0.95, str(round(HaNIIdat.iloc[2]['mu'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.90,'Std Dev: ' + str(round(HaNIIdat.iloc[0]['sig'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.24,0.90, str(round(HaNIIdat.iloc[1]['sig'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.40,0.90, str(round(HaNIIdat.iloc[2]['sig'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.85,'Flux:   ' + str(round(HaNIIdat.iloc[0]['flux'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.24,0.85, str(round(HaNIIdat.iloc[1]['flux'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.40,0.85, str(round(HaNIIdat.iloc[2]['flux'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.80,'Flag:   ' + str(int(HaNIIdat.iloc[0]['flag'])),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.15,0.80, str(int(HaNIIdat.iloc[1]['flag'])),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.28,0.80, str(int(HaNIIdat.iloc[2]['flag'])),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.75, 'Scale:  ' + str(round(HaNIIdat.iloc[2]['scale'],2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.70, 'zfit:   ' + str(round(zgauss,4)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.65, 'chi2tot: ' + str(round(chi2tot,2)),fontsize = textfont, transform=ax0.transAxes)
-                            ax0.text(0.02,0.60, 'rchi2tot: ' + str(round(rchi2tot,2)),fontsize = textfont, transform=ax0.transAxes)
-                            
-                        
+                            ax0.text(0.02,0.95, 'z:            ' + str(round(zcc,4)),fontsize = textfont, transform=ax0.transAxes)
+                            ax0.text(0.02,0.90,'Mean:     ' + str(round(HaNIIdat.iloc[1]['mu'],2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.24,0.95, str(round(HaNIIdat.iloc[1]['mu'],2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.40,0.95, str(round(HaNIIdat.iloc[2]['mu'],2)),fontsize = textfont, transform=ax0.transAxes)
+                            ax0.text(0.02,0.85,'Width:    ' + str(round(HaNIIdat.iloc[1]['sig'],2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.24,0.90, str(round(HaNIIdat.iloc[1]['sig'],2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.40,0.90, str(round(HaNIIdat.iloc[2]['sig'],2)),fontsize = textfont, transform=ax0.transAxes)
+                            ax0.text(0.02,0.80,'Flux:       ' + str(round(HaNIIdat.iloc[1]['flux'],2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.24,0.85, str(round(HaNIIdat.iloc[1]['flux'],2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.40,0.85, str(round(HaNIIdat.iloc[2]['flux'],2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.80,'Flag:   ' + str(int(HaNIIdat.iloc[0]['flag'])),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.15,0.80, str(int(HaNIIdat.iloc[1]['flag'])),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.28,0.80, str(int(HaNIIdat.iloc[2]['flag'])),fontsize = textfont, transform=ax0.transAxes)
+                            ax0.text(0.02,0.75, 'Scale:     ' + str(round(HaNIIdat.iloc[2]['scale'],2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.70, 'zfit:   ' + str(round(zgauss,4)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.65, 'chi2tot: ' + str(round(chi2tot,2)),fontsize = textfont, transform=ax0.transAxes)
+                            #ax0.text(0.02,0.60, 'rchi2tot: ' + str(round(rchi2tot,2)),fontsize = textfont, transform=ax0.transAxes)
+
+
                         if fitflag:
                             ax0.text(0.02,0.50,'flag:          ' + str(fitflag),fontsize = textfont, transform=ax0.transAxes)
                         #fig.text(0.14,0.60,'Redshift:   ' + str(round(zcc,4)),fontsize = textfont)
@@ -535,10 +537,9 @@ for i in range(len(objs)):
                             ax0.plot(dropwaveline,gausscurve3,color='black',label='Gaussian fit')
                         else:
                             ax0.plot(dropwaveline,gausscurveHa,color='black',label='Gaussian fit')
-                        ax0.legend(fontsize = legendfont,loc=1)
                         #plt.show()
 
-                        
+
                         #Store the results to the output array:
                         #First we find the index with a matching objid
                         #midx = np.where((outarr.OBJID.astype(float)-float(objs[i][0])==0) and (outarr.Mask == (objs[i][1]+objs[i][2])))[0]
@@ -547,7 +548,7 @@ for i in range(len(objs)):
                         #Get the index of the matching element
                         midx = outarr.index[tfarr]
                         #We make sure outarr has correct column types
-                        if os.path.exists(dataout): 
+                        if os.path.exists(dataout):
                             #outarr.OBJID = outarr.OBJID.astype(str)
                             outarr.Mask = outarr.Mask.astype(str)
                             outarr.fluxfile = outarr.fluxfile.astype(str)
@@ -563,7 +564,7 @@ for i in range(len(objs)):
                             outarr.at[midx,'Mask'] = objs[i][1]+objs[i][2]
                             outarr.at[midx,'fluxfile'] = 'flx_' + objs[i][0] + '_feb1' + objs[i][2] + '_' + objs[i][1] + 'big.fits'
                             outarr.at[midx,'zcc'] = zcc
-                            
+
                         #Write in the new info from the fit. outarr.at auto generates new columns if needed
                         if not HaNII:
                             outarr.at[midx,linestr + '_mean'] = mu3
@@ -580,35 +581,36 @@ for i in range(len(objs)):
                             linearr = ['6548','6563','6583']
                             counter = 0
                             for linestr in linearr:
-                                outarr.at[midx,linestr + '_mean'] = HaNIIdat.iloc[counter]['mu']
-                                outarr.at[midx,linestr + '_stddev'] = HaNIIdat.iloc[counter]['sig']
-                                outarr.at[midx,linestr + '_flux'] = HaNIIdat.iloc[counter]['flux']
-                                outarr.at[midx,linestr + '_scale'] = HaNIIdat.iloc[counter]['scale']
-                                outarr.at[midx,linestr + '_chi2'] = HaNIIdat.iloc[counter]['chi2']
-                                outarr.at[midx,linestr + '_rchi2'] = HaNIIdat.iloc[counter]['rchi2']
-                                outarr.at[midx,linestr + '_sumflux'] = HaNIIdat.iloc[counter]['sumflux']
-                                outarr.at[midx,linestr + '_wsig'] = HaNIIdat.iloc[counter]['wsig']
-                                outarr.at[midx,linestr + '_usig'] = HaNIIdat.iloc[counter]['usig']
-                                outarr.at[midx,linestr + '_flag'] = HaNIIdat.iloc[counter]['flag']
+                                outarr.at[midx,linestr + '_fix_mean'] = HaNIIdat.iloc[counter]['mu']
+                                outarr.at[midx,linestr + '_fix_stddev'] = HaNIIdat.iloc[counter]['sig']
+                                outarr.at[midx,linestr + '_fix_flux'] = HaNIIdat.iloc[counter]['flux']
+                                outarr.at[midx,linestr + '_fix_scale'] = HaNIIdat.iloc[counter]['scale']
+                                outarr.at[midx,linestr + '_fix_chi2'] = HaNIIdat.iloc[counter]['chi2']
+                                outarr.at[midx,linestr + '_fix_rchi2'] = HaNIIdat.iloc[counter]['rchi2']
+                                outarr.at[midx,linestr + '_fix_sumflux'] = HaNIIdat.iloc[counter]['sumflux']
+                                outarr.at[midx,linestr + '_fix_wsig'] = HaNIIdat.iloc[counter]['wsig']
+                                outarr.at[midx,linestr + '_fix_usig'] = HaNIIdat.iloc[counter]['usig']
+                                outarr.at[midx,linestr + '_fix_flag'] = HaNIIdat.iloc[counter]['flag']
                                 counter = counter + 1
-                            outarr.at[midx,'6563_chi2tot'] = chi2tot
-                            outarr.at[midx,'6563_rchi2tot'] = rchi2tot
-                            outarr.at[midx,'6563_zgauss'] = zgauss
-                       
+                            outarr.at[midx,'6563_fix_chi2tot'] = chi2tot
+                            outarr.at[midx,'6563_fix_rchi2tot'] = rchi2tot
+                            outarr.at[midx,'6563_fix_zgauss'] = zgauss
+
                         '''
                         Flag values:
                         1 - too many zeros, we threw out the fit
-                        2 - sigma >8, so it hit the bounds. 
+                        2 - sigma >8, so it hit the bounds.
                         4 - scale >1.3 or <0.7, probably something wrong with spectrum in the region
                         5 - the line is not redshifted enough to be in view (e.g. 3727 OII)
                         '''
-            
-                        
+
+
                     except (RuntimeError):
                         ax0.text(0.14,0.84,'Fitting Failed',fontsize = textfont, transform=ax0.transAxes)
                         #plt.show()
                 else: print('Bad data at ' + str(line) + ', too many NaN. ' + 'flx_' + objs[i][0] + '_feb1' + objs[i][2] + '_' + objs[i][1] + 'big.fits' )
-               
+                ax0.legend(fontsize = legendfont,loc=1)
+
 
     #If not, give an error but continue
     else: print('Could not read file ' + flxfits)
@@ -622,6 +624,22 @@ outarr = outarr.reindex(sorted(outarr.columns), axis=1)
 outarr = outarr.fillna(value = -99.999999999999)
 #Remove columns with this, then take it back out
 #outarr = outarr.drop('Ha_chi2',axis=1)
+'''
+for linestr in linearr:
+    fluxdata = fluxdata.rename(columns={linestr + '_mean_fix':linestr + '_fix_mean'})
+    fluxdata = fluxdata.rename(columns={linestr + '_stddev_fix':linestr + '_fix_stddev'})
+    fluxdata = fluxdata.rename(columns={linestr + '_flux_fix':linestr + '_fix_flux'})
+    fluxdata = fluxdata.rename(columns={linestr + '_scale_fix':linestr + '_fix_scale'})
+    fluxdata = fluxdata.rename(columns={linestr + '_chi2_fix':linestr + '_fix_chi2'})
+    fluxdata = fluxdata.rename(columns={linestr + '_rchi2_fix':linestr + '_fix_rchi2'})
+    fluxdata = fluxdata.rename(columns={linestr + '_sumflux_fix':linestr + '_fix_sumflux'})
+    fluxdata = fluxdata.rename(columns={linestr + '_wsig_fix':linestr + '_fix_wsig'})
+    fluxdata = fluxdata.rename(columns={linestr + '_usig_fix':linestr + '_fix_usig'})
+    fluxdata = fluxdata.rename(columns={linestr + '_flag_fix':linestr + '_fix_flag'})
+fluxdata = fluxdata.rename(columns={'6563_chi2tot_fix':'6563_fix_chi2tot'})
+fluxdata = fluxdata.rename(columns={'6563_rchi2tot_fix':'6563_fix_rchi2tot'})
+fluxdata = fluxdata.rename(columns={'6563_zgauss_fix':'6563_fix_zgauss'})
+'''
 
 #Write the file
 outarr.to_csv(dataout,index=False)
@@ -632,13 +650,8 @@ outarr.to_csv(dataout,index=False)
 fig.tight_layout()
 figb.tight_layout()
 if HaNII: linename = 'HaNII'
-fig.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '.pdf')
-figb.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_flagged.pdf')
+fig.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_1sig.pdf')
+figb.savefig(figout + str(int(np.round(restwave))) + '_' + linename + '_' + letnum + '_flagged_1sig.pdf')
 plt.close(fig)
 plt.close(figb)
-                        
 
-
-'''
-Make a bpt diagram, look at spectra of possible AGN
-'''

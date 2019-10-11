@@ -1,7 +1,0 @@
-### Pipeline for coverting data from redshifts into a more usable form and combining it with UVISTA and deimos data
-
-run MergeData.py - this combines our data with the ULTRAVista data, selecting only those rows that we have observed. Outputs all_data_UVISTA.txt
-
-run AddZ.py - this adds two missing columns to the above, the final redshift 'z_cc' and the object identifier 'OBJID'. outputs all_data_UVISTA_z.txt
-
-run Combine_Hassinger.py - Finds the nearest object to each of our in the Hassigner catalog and combines with ours, outputs all_data_hasinger.txt
