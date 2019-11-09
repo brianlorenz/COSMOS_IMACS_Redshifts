@@ -9,7 +9,7 @@ from astropy.io import ascii
 from tabulate import tabulate
 
 # Location to save outputs
-figout = '/Users/galaxies-air/COSMOS/COSMOS_IMACS_Redshifts/Paper_Images/'
+figout = '/Users/galaxies-air/COSMOS/Paper_Images/'
 
 # Read the data
 red_data_loc = '/Users/galaxies-air/COSMOS/COSMOSData/all_c_hasinger_dz.txt'
