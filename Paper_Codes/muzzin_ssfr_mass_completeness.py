@@ -54,16 +54,18 @@ def compute_completeness(mass_bins, ssfr_bins, unique_objs, measured_objs):
     measured_binned = np.histogram2d(measured_objs['LMASS'], measured_objs['sSFR'], bins=[
         mass_bins, ssfr_bins])
     # Need to transpose it to get the axes to line up
-    completeness_arr = np.transpose(measured_binned[0]/unique_binned[0])
     # The flip to account for ssfr being backwards. Compared by eye to the ssfr_mass plot
-    completeness_arr = np.flip(completeness_arr, axis=0)
-    return completeness_arr
+
+    measured_binned = np.flip(np.transpose(measured_binned[0]), axis=0)
+    unique_binned = np.flip(np.transpose(unique_binned[0]), axis=0)
+    completeness_arr = measured_binned/unique_binned
+    return completeness_arr, unique_binned, measured_binned
 
 
 measured_objs = unique_objs[unique_objs['Measured'] == 1]
 
 mass_bins, ssfr_bins = get_bins(dmass, dssfr)
-completeness_arr = compute_completeness(
+completeness_arr, unique_binned, measured_binned = compute_completeness(
     mass_bins, ssfr_bins, unique_objs, measured_objs)
 
 # Fontsizes for plotting
@@ -75,7 +77,7 @@ legendfont = 16
 textfont = 16
 
 # Figure setup
-fig, ax = plt.subplots(figsize=(8, 7))
+fig, ax = plt.subplots(figsize=(9, 7))
 
 mark = '.'
 xlab = 'log(Stellar Mass) (M$_\odot$)'
@@ -89,25 +91,36 @@ extent = [mass_bins[0], mass_bins[-1], ssfr_bins[0], ssfr_bins[-1]]
 # aspect stretches the pixes to make them boxes
 image = ax.imshow(completeness_arr, extent=extent,
                   interpolation='nearest', aspect='auto')
-plt.colorbar(image)
+cbar = plt.colorbar(image)
+#cbar.ax.set_ylabel('Fraction Measured', rotation=270, fontsize=axisfont-8)
+fig.text(0.955, 0.55, 'Fraction Measured', fontsize=axisfont,
+         rotation=270, verticalalignment='center')
+cbar.ax.tick_params(labelsize=ticksize)
 
-'''
-# Plot all the objects in red
+
+# Plot all the objects
 plt.scatter(unique_objs['LMASS'], unique_objs['sSFR'], color='black',
             marker=mark, label='Not measured')
 # Overplot the objects that are good, which will cover the bad ones
 plt.scatter(measured_objs['LMASS'], measured_objs['sSFR'], color='white',
             marker=mark, label='Measured')
+
+
 '''
-
-
 for (x, y) in product(np.arange(len(mass_bins)-1), np.arange(len(ssfr_bins)-1)):
     try:
-        ax.text(mass_bins[x]+dmass/2, ssfr_bins[::-1][y+1]+dssfr/2, f'{int(round(completeness_arr[y,x],2)*100)}%',
-                horizontalalignment='center', verticalalignment='center')
-    except:
+        # Percentage rounded to nearest two digits, XX%
+        plot_text = f'{int(round(completeness_arr[y,x],2)*100)}%'
+        # Alternatively, fraction measured in raw counts:
+        plot_text = f'{int(measured_binned[y,x])} / {int(unique_binned[y,x])}'
+        # Aternatively, number of objects in that bin
+        plot_text = f'{int(unique_binned[y,x])}'
+        ax.text(mass_bins[x]+dmass/2, ssfr_bins[::-1][y+1]+dssfr/2, plot_text,
+                horizontalalignment='center', verticalalignment='center', fontsize=12)
+    except ValueError:
+        # This error is thrown when the value is nan, so we will not write in that square
         pass
-
+'''
 
 # Set the axis labels
 ax.set_xlabel(xlab, fontsize=axisfont)
