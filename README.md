@@ -1,6 +1,8 @@
 # COSMOS_IMACS_Redshifts
 A pipeline to take processed big.fits files from the [IMACS spectrograph](http://www.lco.cl/telescopes-information/magellan/instruments/imacs) on the Baade telescope at Magellan and compute redshifts to galaxies
 
+Developed in 2017-2018 through my undergraduate summer reserach program at Carnegie Observatories
+
 
 ## Redshift_Measurement
 Files located in Redshift_Measurement
